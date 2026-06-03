@@ -91,8 +91,9 @@ button {
 
 .scene-strip {
   min-width: 0;
-  min-height: 78px;
+  min-height: 118px;
   display: grid;
+  gap: 8px;
   border: 1px solid #c49b5c;
   border-radius: 8px;
   background: linear-gradient(135deg, #ffedc9 0%, #d7edf9 100%);
@@ -124,6 +125,77 @@ button {
   color: #34506b;
 }
 
+.mainline-focus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label step"
+    "title title";
+  gap: 4px 8px;
+  align-items: center;
+  border: 1px solid rgba(21, 93, 128, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 6px 8px;
+}
+
+.mainline-focus span,
+.mainline-focus small {
+  color: #31506b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mainline-focus span {
+  grid-area: label;
+}
+
+.mainline-focus small {
+  grid-area: step;
+}
+
+.mainline-focus strong {
+  grid-area: title;
+  font-size: 14px;
+  line-height: 1.05;
+}
+
+.route-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.route-track span {
+  min-width: 0;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #aac0d2;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #536476;
+  font-size: 10px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-track span.active {
+  border-color: #176c8d;
+  background: #dff5fb;
+  color: #0b526b;
+}
+
+.route-track span.completed {
+  border-color: #5ca46b;
+  background: #e7f6e8;
+  color: #386f41;
+}
+
 .board {
   min-width: 0;
   display: grid;
@@ -149,6 +221,10 @@ button {
 .cell.selected {
   outline: 3px solid #116d9d;
   outline-offset: 1px;
+}
+
+.cell.route-needed {
+  box-shadow: inset 0 0 0 3px #155f83;
 }
 
 .cell.empty {
@@ -230,6 +306,12 @@ button {
 .customer-ticket.ready {
   border-color: #4f9f63;
   background: #eefaf0;
+}
+
+.customer-ticket.focused {
+  border-color: #176c8d;
+  background: #e7f8fc;
+  box-shadow: inset 0 0 0 1px #176c8d;
 }
 
 .ticket-main {

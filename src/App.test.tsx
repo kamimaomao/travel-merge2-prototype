@@ -19,4 +19,14 @@ describe("Travel Merge2 shell", () => {
     expect(within(orderStrip).getByText("Departure Prep")).toBeTruthy();
     expect(within(orderStrip).getByText("Tokyo Morning Errand")).toBeTruthy();
   });
+
+  it("shows the next chapter order as the route focus and links useful board chains", () => {
+    render(<App />);
+
+    const focus = screen.getByLabelText("Current route focus");
+    expect(within(focus).getByText("Departure Prep")).toBeTruthy();
+    expect(within(focus).getByText("Step 1/4")).toBeTruthy();
+    expect(screen.getByLabelText("Pill cell 2").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Pill cell 3").getAttribute("data-route-needed")).toBe("true");
+  });
 });

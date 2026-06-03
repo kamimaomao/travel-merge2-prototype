@@ -41,12 +41,23 @@ function canFulfillOrder(state: GameState, orderId: string): boolean {
   });
 }
 
+function getFocusedOrderId(state: GameState, chapterOrderIds: string[]): string | null {
+  return chapterOrderIds.find((orderId) => state.activeOrderIds.includes(orderId)) ?? state.activeOrderIds[0] ?? null;
+}
+
 export default function App() {
   const [game, setGame] = useState<GameState>(() => createInitialState());
   const chapter = cityChapters[game.cityChapterId];
   const selectedPiece = game.selectedIndex === null ? null : game.board[game.selectedIndex];
+  const focusedOrderId = getFocusedOrderId(game, chapter.orderIds);
+  const focusedOrder = focusedOrderId ? orderDefs[focusedOrderId] : null;
+  const focusedOrderStep = focusedOrderId ? chapter.orderIds.indexOf(focusedOrderId) + 1 : 0;
 
   const selectedLabel = useMemo(() => getPieceLabel(selectedPiece), [selectedPiece]);
+  const focusedRequirementChainIds = useMemo(
+    () => new Set(focusedOrder?.requirements.map((requirement) => itemDefs[requirement.itemId].chainId) ?? []),
+    [focusedOrder]
+  );
 
   function handleCellClick(index: number) {
     const piece = game.board[index];
@@ -129,16 +140,40 @@ export default function App() {
             <h1>{chapter.sceneTitle}</h1>
             <p>{chapter.sceneSubtitle}</p>
           </div>
+          <div className="mainline-focus" aria-label="Current route focus">
+            <span>Route Focus</span>
+            <strong>{focusedOrder ? focusedOrder.title : "Chapter Clear"}</strong>
+            <small>
+              Step {focusedOrderStep || chapter.orderIds.length}/{chapter.orderIds.length}
+            </small>
+          </div>
+          <div className="route-track" aria-label="Travel route steps">
+            {chapter.orderIds.map((orderId, index) => {
+              const order = orderDefs[orderId];
+              const completed = game.completedOrderIds.includes(orderId);
+              const active = focusedOrderId === orderId;
+              return (
+                <span className={`${completed ? "completed" : ""} ${active ? "active" : ""}`} key={orderId}>
+                  {index + 1}. {order.requester}
+                </span>
+              );
+            })}
+          </div>
         </section>
 
         <section className="customer-strip" aria-label="Active customer orders">
           {game.activeOrderIds.map((orderId) => {
             const order = orderDefs[orderId];
             const ready = canFulfillOrder(game, orderId);
+            const focused = focusedOrderId === orderId;
             return (
-              <article className={`customer-ticket ${ready ? "ready" : ""}`} key={order.id}>
+              <article
+                className={`customer-ticket ${ready ? "ready" : ""} ${focused ? "focused" : ""}`}
+                key={order.id}
+                aria-current={focused ? "step" : undefined}
+              >
                 <div className="ticket-main">
-                  <span className="requester">{order.requester}</span>
+                  <span className="requester">{focused ? "Route Focus" : order.requester}</span>
                   <h2>{order.title}</h2>
                   <p>{order.flavor}</p>
                 </div>
@@ -180,13 +215,15 @@ export default function App() {
           {game.board.map((piece, index) => {
             const label = getPieceLabel(piece);
             const selected = game.selectedIndex === index;
+            const routeNeeded = piece?.kind === "item" && focusedRequirementChainIds.has(itemDefs[piece.defId].chainId);
             return (
               <button
-                className={`cell ${label.className} ${selected ? "selected" : ""}`}
+                className={`cell ${label.className} ${selected ? "selected" : ""} ${routeNeeded ? "route-needed" : ""}`}
                 type="button"
                 key={piece ? piece.uid : `empty-${index}`}
                 onClick={() => handleCellClick(index)}
                 aria-label={`${label.label} cell ${index + 1}`}
+                data-route-needed={routeNeeded ? "true" : undefined}
               >
                 <span className="cell-emoji">{label.emoji}</span>
                 <span className="cell-label">{label.shortLabel}</span>
