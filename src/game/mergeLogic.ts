@@ -6,7 +6,8 @@ function cloneState(state: GameState): GameState {
     ...state,
     board: [...state.board],
     activeOrderIds: [...state.activeOrderIds],
-    completedOrderIds: [...state.completedOrderIds]
+    completedOrderIds: [...state.completedOrderIds],
+    unlockedMapSpotIds: [...state.unlockedMapSpotIds]
   };
 }
 

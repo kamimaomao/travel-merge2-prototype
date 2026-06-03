@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import App from "./App";
 
@@ -38,5 +38,32 @@ describe("Travel Merge2 shell", () => {
     expect(within(focusedOrder).getByText("Route")).toBeTruthy();
     expect(screen.getByLabelText("Pill cell 2").getAttribute("data-route-needed")).toBe("true");
     expect(screen.getByLabelText("Pill cell 3").getAttribute("data-route-needed")).toBe("true");
+  });
+
+  it("opens the city postcard map from the merge page and leaves branch hooks visible", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Map" }));
+
+    expect(screen.getByLabelText("Travel postcard map")).toBeTruthy();
+    expect(screen.getByLabelText("City postcard map")).toBeTruthy();
+    expect(screen.getByText("City Map")).toBeTruthy();
+    expect(screen.getByLabelText("Shopping Arcade reserved")).toBeTruthy();
+    expect(screen.getByLabelText("Local Bites reserved")).toBeTruthy();
+    expect(screen.getByLabelText("Culture Night reserved")).toBeTruthy();
+    expect(screen.queryByLabelText("Merge board")).toBeNull();
+  });
+
+  it("spends an order star to unlock the next scenic postcard spot", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByLabelText("Deliver Tokyo Morning Errand"));
+    fireEvent.click(screen.getByRole("button", { name: "Map" }));
+    fireEvent.click(screen.getByLabelText("Canal Bridge locked"));
+
+    const progress = screen.getByLabelText("Scenic route progress");
+    expect(within(progress).getByText("3/8")).toBeTruthy();
+    expect(screen.getByLabelText("Canal Bridge unlocked")).toBeTruthy();
+    expect(screen.getByLabelText("Stars").textContent).toBe("0");
   });
 });

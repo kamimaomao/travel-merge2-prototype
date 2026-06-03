@@ -68,6 +68,20 @@ export interface CityChapter {
   orderIds: string[];
 }
 
+export type MapSpotCategory = "scenic" | "food" | "shopping" | "culture";
+export type MapSpotStatus = "unlocked" | "locked" | "reserved";
+
+export interface MapSpotDef {
+  id: string;
+  category: MapSpotCategory;
+  title: string;
+  shortLabel: string;
+  emoji: string;
+  starCost: number;
+  areaClass: string;
+  postcardFragment?: string;
+}
+
 export interface BoardPiece {
   uid: string;
   kind: PieceKind;
@@ -86,6 +100,7 @@ export interface GameState {
   selectedIndex: number | null;
   activeOrderIds: string[];
   completedOrderIds: string[];
+  unlockedMapSpotIds: string[];
   message: string;
   nextUid: number;
   cityChapterId: string;

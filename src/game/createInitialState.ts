@@ -1,4 +1,5 @@
 import type { BoardPiece, GameState } from "./types";
+import { initialUnlockedMapSpotIds } from "./mapContent";
 
 function piece(uid: number, kind: BoardPiece["kind"], defId: string): BoardPiece {
   return { uid: `piece-${uid}`, kind, defId };
@@ -18,6 +19,7 @@ export function createInitialState(): GameState {
     selectedIndex: null,
     activeOrderIds: ["departure-prep", "tokyo-morning-errand", "cat-preference"],
     completedOrderIds: [],
+    unlockedMapSpotIds: initialUnlockedMapSpotIds,
     message: "Tap an on-board generator to produce travel items.",
     nextUid: 36,
     cityChapterId: "tokyoDay1",

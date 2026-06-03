@@ -1,9 +1,24 @@
-import { Backpack, Coins, Gem, Map as MapIcon, RotateCcw, Sparkles, Zap } from "lucide-react";
+import {
+  ArrowLeft,
+  Backpack,
+  Coins,
+  Gem,
+  Images,
+  Map as MapIcon,
+  RotateCcw,
+  ShoppingBag,
+  Sparkles,
+  Utensils,
+  Zap
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./game/content";
 import { createInitialState } from "./game/createInitialState";
+import { mapSpotDefs } from "./game/mapContent";
 import { emitFromGenerator, fulfillOrder, moveOrMerge } from "./game/mergeLogic";
-import type { BoardPiece, GameState } from "./game/types";
+import type { BoardPiece, GameState, MapSpotCategory, MapSpotDef, MapSpotStatus } from "./game/types";
+
+type AppView = "merge" | "map";
 
 function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: string; label: string; className: string } {
   if (!piece) {
@@ -62,8 +77,29 @@ function formatHudValue(value: number): string {
   return `${value}`;
 }
 
+function getMapSpotStatus(state: GameState, spot: MapSpotDef): MapSpotStatus {
+  if (spot.category !== "scenic") {
+    return "reserved";
+  }
+  return state.unlockedMapSpotIds.includes(spot.id) ? "unlocked" : "locked";
+}
+
+function getMapCategoryIcon(category: MapSpotCategory) {
+  if (category === "food") {
+    return <Utensils size={14} aria-hidden="true" />;
+  }
+  if (category === "shopping") {
+    return <ShoppingBag size={14} aria-hidden="true" />;
+  }
+  if (category === "culture") {
+    return <Images size={14} aria-hidden="true" />;
+  }
+  return <Sparkles size={14} aria-hidden="true" />;
+}
+
 export default function App() {
   const [game, setGame] = useState<GameState>(() => createInitialState());
+  const [view, setView] = useState<AppView>("merge");
   const chapter = cityChapters[game.cityChapterId];
   const selectedPiece = game.selectedIndex === null ? null : game.board[game.selectedIndex];
   const focusedOrderId = getFocusedOrderId(game, chapter.orderIds);
@@ -127,32 +163,149 @@ export default function App() {
 
   function resetPrototype() {
     setGame(createInitialState());
+    setView("merge");
+  }
+
+  function handleMapSpotClick(spot: MapSpotDef) {
+    const status = getMapSpotStatus(game, spot);
+    if (status === "reserved") {
+      setGame({ ...game, message: `${spot.title} is a reserved ${spot.category} branch.` });
+      return;
+    }
+    if (status === "unlocked") {
+      setGame({ ...game, message: `${spot.title} is already part of the postcard.` });
+      return;
+    }
+    if (game.stars < spot.starCost) {
+      setGame({ ...game, message: `${spot.title} needs ${spot.starCost} star${spot.starCost === 1 ? "" : "s"}.` });
+      return;
+    }
+    setGame({
+      ...game,
+      stars: game.stars - spot.starCost,
+      unlockedMapSpotIds: [...game.unlockedMapSpotIds, spot.id],
+      message: `${spot.title} opened on the city postcard.`
+    });
+  }
+
+  function renderHud() {
+    return (
+      <header className="hud">
+        <div className="hud-pill" aria-label="Energy">
+          <Zap size={16} aria-hidden="true" />
+          <span>{formatHudValue(game.energy)}</span>
+        </div>
+        <div className="hud-pill" aria-label="Stars">
+          <Sparkles size={16} aria-hidden="true" />
+          <span>{formatHudValue(game.stars)}</span>
+        </div>
+        <div className="hud-pill" aria-label="Coins">
+          <Coins size={16} aria-hidden="true" />
+          <span>{formatHudValue(game.coins)}</span>
+        </div>
+        <div className="hud-pill" aria-label="Gems">
+          <Gem size={16} aria-hidden="true" />
+          <span>{formatHudValue(game.gems)}</span>
+        </div>
+        <button className="icon-button" type="button" onClick={resetPrototype} aria-label="Reset prototype">
+          <RotateCcw size={18} aria-hidden="true" />
+        </button>
+      </header>
+    );
+  }
+
+  if (view === "map") {
+    const scenicSpots = mapSpotDefs.filter((spot) => spot.category === "scenic");
+    const unlockedScenicCount = scenicSpots.filter((spot) => game.unlockedMapSpotIds.includes(spot.id)).length;
+    const postcardPercent = Math.round((unlockedScenicCount / scenicSpots.length) * 100);
+
+    return (
+      <main className="game-shell">
+        <section className="phone-frame map-frame" aria-label="Travel postcard map">
+          {renderHud()}
+
+          <section className="map-titlebar">
+            <div>
+              <p className="eyebrow">City Postcard</p>
+              <h1>City Map</h1>
+            </div>
+            <div className="map-progress" aria-label="Scenic route progress">
+              <strong>{unlockedScenicCount}/{scenicSpots.length}</strong>
+              <span>Scenic</span>
+            </div>
+          </section>
+
+          <section className="postcard-map" aria-label="City postcard map">
+            {mapSpotDefs.map((spot) => {
+              const status = getMapSpotStatus(game, spot);
+              return (
+                <button
+                  className={`map-spot ${spot.category} ${status} ${spot.areaClass}`}
+                  type="button"
+                  key={spot.id}
+                  onClick={() => handleMapSpotClick(spot)}
+                  aria-label={`${spot.title} ${status}`}
+                >
+                  <span className="map-spot-icon">{spot.emoji}</span>
+                  <strong>{spot.shortLabel}</strong>
+                  <small>{status === "locked" ? `★${spot.starCost}` : status === "reserved" ? "Hook" : "Open"}</small>
+                </button>
+              );
+            })}
+          </section>
+
+          <section className="map-branch-row" aria-label="Travel branch hooks">
+            <span>
+              {getMapCategoryIcon("food")}
+              Food
+            </span>
+            <span>
+              {getMapCategoryIcon("shopping")}
+              Shopping
+            </span>
+            <span>
+              {getMapCategoryIcon("culture")}
+              Culture
+            </span>
+          </section>
+
+          <section className="postcard-status" aria-label="Postcard completion">
+            <div>
+              <p className="eyebrow">Postcard</p>
+              <strong>{postcardPercent}%</strong>
+            </div>
+            <p>{game.message}</p>
+          </section>
+
+          <section className="map-bottom">
+            <button className="bottom-action" type="button" aria-label="Back to merge board" onClick={() => setView("merge")}>
+              <ArrowLeft size={20} aria-hidden="true" />
+            </button>
+            <div className="bottom-info" aria-label="Map information">
+              <div>
+                <p className="eyebrow">Stars</p>
+                <strong>{formatHudValue(game.stars)}</strong>
+              </div>
+              <p>{game.message}</p>
+            </div>
+            <button
+              className="bottom-action"
+              type="button"
+              aria-label="Postcard album"
+              onClick={() => setGame({ ...game, message: "Postcard album hook reserved for collection rewards." })}
+            >
+              <Images size={20} aria-hidden="true" />
+            </button>
+          </section>
+        </section>
+      </main>
+    );
   }
 
   return (
     <main className="game-shell">
       <section className="phone-frame" aria-label="Travel Merge2 prototype">
-        <header className="hud">
-          <div className="hud-pill" aria-label="Energy">
-            <Zap size={16} aria-hidden="true" />
-            <span>{formatHudValue(game.energy)}</span>
-          </div>
-          <div className="hud-pill" aria-label="Stars">
-            <Sparkles size={16} aria-hidden="true" />
-            <span>{formatHudValue(game.stars)}</span>
-          </div>
-          <div className="hud-pill" aria-label="Coins">
-            <Coins size={16} aria-hidden="true" />
-            <span>{formatHudValue(game.coins)}</span>
-          </div>
-          <div className="hud-pill" aria-label="Gems">
-            <Gem size={16} aria-hidden="true" />
-            <span>{formatHudValue(game.gems)}</span>
-          </div>
-          <button className="icon-button" type="button" onClick={resetPrototype} aria-label="Reset prototype">
-            <RotateCcw size={18} aria-hidden="true" />
-          </button>
-        </header>
+        {renderHud()}
 
         <section className="customer-strip" aria-label="Active customer orders">
           {game.activeOrderIds.map((orderId) => {
@@ -184,7 +337,12 @@ export default function App() {
                 <span className="ticket-reward" aria-label={`${order.title} reward`}>
                   <Sparkles size={12} aria-hidden="true" /> +{order.rewardStars}
                 </span>
-                <button type="button" disabled={!ready} onClick={() => handleOrderClick(order.id)}>
+                <button
+                  type="button"
+                  disabled={!ready}
+                  onClick={() => handleOrderClick(order.id)}
+                  aria-label={`Deliver ${order.title}`}
+                >
                   Deliver
                 </button>
               </article>
@@ -252,7 +410,7 @@ export default function App() {
             className="bottom-action"
             type="button"
             aria-label="Map"
-            onClick={() => setGame({ ...game, message: "Travel map and decoration loop are reserved." })}
+            onClick={() => setView("map")}
           >
             <MapIcon size={20} aria-hidden="true" />
           </button>
