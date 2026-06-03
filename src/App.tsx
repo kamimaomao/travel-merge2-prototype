@@ -60,8 +60,19 @@ export default function App() {
       return;
     }
 
-    if (game.selectedIndex === index && piece?.kind === "generator") {
+    if (piece?.kind === "generator") {
       setGame(emitFromGenerator(game, index));
+      return;
+    }
+
+    const selected = game.board[game.selectedIndex];
+    if (
+      piece &&
+      selected &&
+      (piece.kind !== selected.kind || piece.defId !== selected.defId) &&
+      piece.kind !== "locked"
+    ) {
+      setGame({ ...game, selectedIndex: index, message: `${getPieceLabel(piece).label} selected.` });
       return;
     }
 
