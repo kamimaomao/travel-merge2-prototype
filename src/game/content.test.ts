@@ -31,4 +31,16 @@ describe("travel merge content", () => {
     expect(generatorCells.map((piece) => piece?.defId)).toContain("suitcase-1");
     expect(generatorCells.map((piece) => piece?.defId)).toContain("tokyo-convenience-bag-1");
   });
+
+  it("starts with a hidden-information reveal board and a small working pocket", () => {
+    const state = createInitialState();
+    const hiddenCells = state.board.filter((piece) => piece?.kind === "hidden");
+    const directlyPlayableCells = state.board.filter((piece) => piece === null || piece.kind !== "hidden");
+    expect(state.board.length).toBe(state.boardCols * state.boardCols);
+    expect(hiddenCells.length).toBeGreaterThanOrEqual(27);
+    expect(hiddenCells.length).toBeLessThanOrEqual(30);
+    expect(directlyPlayableCells.length).toBeGreaterThanOrEqual(6);
+    expect(directlyPlayableCells.length).toBeLessThanOrEqual(9);
+    expect(directlyPlayableCells.some((piece) => piece?.kind === "generator")).toBe(true);
+  });
 });

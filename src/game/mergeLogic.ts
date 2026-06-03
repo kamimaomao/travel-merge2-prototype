@@ -39,6 +39,24 @@ function findEmptySlot(state: GameState, sourceIndex: number): number {
   return state.board.findIndex((piece) => piece === null);
 }
 
+function revealAdjacentHidden(board: Array<BoardPiece | null>, index: number, cols: number): number {
+  let revealCount = 0;
+  for (const adjacentIndex of adjacentIndexes(index, cols, board.length)) {
+    if (board[adjacentIndex]?.kind === "hidden") {
+      board[adjacentIndex] = null;
+      revealCount += 1;
+    }
+  }
+  return revealCount;
+}
+
+function mergeMessage(message: string, revealCount: number): string {
+  if (revealCount <= 0) {
+    return message;
+  }
+  return `${message} Opened ${revealCount} sealed space${revealCount === 1 ? "" : "s"}.`;
+}
+
 function pickOutput(outputs: WeightedOutput[], roll: number): string {
   const totalWeight = outputs.reduce((sum, output) => sum + output.weight, 0);
   const target = Math.max(0, Math.min(roll, 0.999999)) * totalWeight;
@@ -96,6 +114,9 @@ export function moveOrMerge(state: GameState, fromIndex: number, toIndex: number
   if (sourcePiece.kind === "locked") {
     return { ...state, selectedIndex: null, message: "This space is still locked." };
   }
+  if (sourcePiece.kind === "hidden") {
+    return { ...state, selectedIndex: null, message: "This part of the board is still sealed." };
+  }
 
   const next = cloneState(state);
   if (!targetPiece) {
@@ -103,6 +124,28 @@ export function moveOrMerge(state: GameState, fromIndex: number, toIndex: number
     next.board[fromIndex] = null;
     next.selectedIndex = toIndex;
     next.message = "Moved.";
+    return next;
+  }
+
+  if (targetPiece.kind === "hidden") {
+    return { ...state, selectedIndex: null, message: "This part of the board is still sealed." };
+  }
+
+  if (targetPiece.kind === "locked") {
+    if (sourcePiece.kind !== "item" || sourcePiece.defId !== targetPiece.defId) {
+      return { ...state, selectedIndex: null, message: "This space is still locked." };
+    }
+
+    const itemDef = itemDefs[sourcePiece.defId];
+    if (!itemDef.nextId) {
+      return { ...state, selectedIndex: null, message: `${itemDef.label} is already at the top tier.` };
+    }
+
+    next.board[toIndex] = { ...targetPiece, kind: "item", defId: itemDef.nextId };
+    next.board[fromIndex] = null;
+    next.selectedIndex = toIndex;
+    const revealCount = revealAdjacentHidden(next.board, toIndex, state.boardCols);
+    next.message = mergeMessage(`Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`, revealCount);
     return next;
   }
 
@@ -118,7 +161,8 @@ export function moveOrMerge(state: GameState, fromIndex: number, toIndex: number
     next.board[toIndex] = { ...targetPiece, defId: itemDef.nextId };
     next.board[fromIndex] = null;
     next.selectedIndex = toIndex;
-    next.message = `Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`;
+    const revealCount = revealAdjacentHidden(next.board, toIndex, state.boardCols);
+    next.message = mergeMessage(`Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`, revealCount);
     return next;
   }
 

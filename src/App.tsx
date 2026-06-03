@@ -1,4 +1,4 @@
-import { RotateCcw, Sparkles, Zap } from "lucide-react";
+import { Backpack, Map as MapIcon, RotateCcw, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./game/content";
 import { createInitialState } from "./game/createInitialState";
@@ -8,6 +8,9 @@ import type { BoardPiece, GameState } from "./game/types";
 function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: string; label: string; className: string } {
   if (!piece) {
     return { emoji: "", shortLabel: "", label: "Empty", className: "empty" };
+  }
+  if (piece.kind === "hidden") {
+    return { emoji: "◇", shortLabel: "Sealed", label: "Sealed travel space", className: "hidden" };
   }
   if (piece.kind === "locked") {
     return { emoji: "📦", shortLabel: "Locked", label: "Locked travel space", className: "locked" };
@@ -52,6 +55,14 @@ export default function App() {
         setGame({ ...game, message: "Select a piece first." });
         return;
       }
+      if (piece.kind === "hidden") {
+        setGame({ ...game, selectedIndex: null, message: "This part of the board is still sealed." });
+        return;
+      }
+      if (piece.kind === "locked") {
+        setGame({ ...game, selectedIndex: null, message: "This space is still locked." });
+        return;
+      }
       if (piece.kind === "generator") {
         setGame(emitFromGenerator(game, index));
         return;
@@ -65,12 +76,16 @@ export default function App() {
       return;
     }
 
+    if (piece?.kind === "hidden" || piece?.kind === "locked") {
+      setGame(moveOrMerge(game, game.selectedIndex, index));
+      return;
+    }
+
     const selected = game.board[game.selectedIndex];
     if (
       piece &&
       selected &&
-      (piece.kind !== selected.kind || piece.defId !== selected.defId) &&
-      piece.kind !== "locked"
+      (piece.kind !== selected.kind || piece.defId !== selected.defId)
     ) {
       setGame({ ...game, selectedIndex: index, message: `${getPieceLabel(piece).label} selected.` });
       return;
@@ -114,15 +129,54 @@ export default function App() {
             <h1>{chapter.sceneTitle}</h1>
             <p>{chapter.sceneSubtitle}</p>
           </div>
-          <div className="cast-strip" aria-label="Travel cast">
-            <span>Avery</span>
-            <span>Mina</span>
-            <span>Theo</span>
-            <span className="cat">Mochi 🐈</span>
-          </div>
         </section>
 
-        <section className="board" style={{ gridTemplateColumns: `repeat(${game.boardCols}, minmax(0, 1fr))` }}>
+        <section className="customer-strip" aria-label="Active customer orders">
+          {game.activeOrderIds.map((orderId) => {
+            const order = orderDefs[orderId];
+            const ready = canFulfillOrder(game, orderId);
+            return (
+              <article className={`customer-ticket ${ready ? "ready" : ""}`} key={order.id}>
+                <div className="ticket-main">
+                  <span className="requester">{order.requester}</span>
+                  <h2>{order.title}</h2>
+                  <p>{order.flavor}</p>
+                </div>
+                <div className="ticket-requirements" aria-label={`${order.title} requirements`}>
+                  {order.requirements.map((requirement) => (
+                    <span key={requirement.itemId}>
+                      {itemDefs[requirement.itemId].emoji}x{requirement.count}
+                    </span>
+                  ))}
+                </div>
+                <button type="button" disabled={!ready} onClick={() => handleOrderClick(order.id)}>
+                  Deliver
+                </button>
+              </article>
+            );
+          })}
+          {game.activeOrderIds.length === 0 ? (
+            <article className="customer-ticket ready">
+              <div className="ticket-main">
+                <span className="requester">Chapter Hook</span>
+                <h2>Recover City Generator</h2>
+                <p>Tokyo limited content can be recovered into collection rewards before the next city opens.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGame({ ...game, message: "Recovery hook reserved for the next slice." })}
+              >
+                Preview
+              </button>
+            </article>
+          ) : null}
+        </section>
+
+        <section
+          className="board"
+          aria-label="Merge board"
+          style={{ gridTemplateColumns: `repeat(${game.boardCols}, minmax(0, 1fr))` }}
+        >
           {game.board.map((piece, index) => {
             const label = getPieceLabel(piece);
             const selected = game.selectedIndex === index;
@@ -141,62 +195,30 @@ export default function App() {
           })}
         </section>
 
-        <section className="feedback-panel">
-          <div>
-            <p className="eyebrow">Selected</p>
-            <strong>{selectedPiece ? selectedLabel.label : "None"}</strong>
-          </div>
-          <p>{game.message}</p>
-        </section>
-
-        <section className="orders-panel" aria-label="Active orders">
-          <div className="orders-header">
+        <section className="merge-bottom" aria-label="Merge page bottom controls">
+          <button
+            className="bottom-action"
+            type="button"
+            aria-label="Backpack"
+            onClick={() => setGame({ ...game, message: "Backpack storage hook reserved for the next slice." })}
+          >
+            <Backpack size={20} aria-hidden="true" />
+          </button>
+          <div className="bottom-info" aria-label="Selected item information">
             <div>
-              <p className="eyebrow">Orders</p>
-              <h2>Travel Timeline</h2>
+              <p className="eyebrow">Selected</p>
+              <strong>{selectedPiece ? selectedLabel.label : "None"}</strong>
             </div>
-            <span>Cat mood {game.catMood}</span>
+            <p>{game.message}</p>
           </div>
-          <div className="orders-list">
-            {game.activeOrderIds.map((orderId) => {
-              const order = orderDefs[orderId];
-              const ready = canFulfillOrder(game, orderId);
-              return (
-                <article className={`order-card ${ready ? "ready" : ""}`} key={order.id}>
-                  <div>
-                    <span className="requester">{order.requester}</span>
-                    <h3>{order.title}</h3>
-                    <p>{order.flavor}</p>
-                    <ul>
-                      {order.requirements.map((requirement) => (
-                        <li key={requirement.itemId}>
-                          {itemDefs[requirement.itemId].emoji} {itemDefs[requirement.itemId].label} x{requirement.count}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <button type="button" disabled={!ready} onClick={() => handleOrderClick(order.id)}>
-                    Deliver
-                  </button>
-                </article>
-              );
-            })}
-            {game.activeOrderIds.length === 0 ? (
-              <article className="order-card ready">
-                <div>
-                  <span className="requester">Chapter Hook</span>
-                  <h3>Recover City Generator</h3>
-                  <p>Tokyo limited content can be recovered into collection rewards before the next city opens.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setGame({ ...game, message: "Recovery hook reserved for the next slice." })}
-                >
-                  Preview
-                </button>
-              </article>
-            ) : null}
-          </div>
+          <button
+            className="bottom-action"
+            type="button"
+            aria-label="Map"
+            onClick={() => setGame({ ...game, message: "Travel map and decoration loop are reserved." })}
+          >
+            <MapIcon size={20} aria-hidden="true" />
+          </button>
         </section>
       </section>
     </main>

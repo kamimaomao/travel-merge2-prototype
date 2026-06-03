@@ -30,12 +30,25 @@ describe("merge board mechanics", () => {
 
   it("merges two identical items into the next tier", () => {
     const state = createInitialState();
-    const firstPill = state.board.findIndex((piece) => piece?.defId === "pill");
+    const firstPill = findPieceIndex(state, "pill");
     const secondPill = state.board.findIndex((piece, index) => index > firstPill && piece?.defId === "pill");
+    expect(secondPill).toBeGreaterThanOrEqual(0);
     const next = moveOrMerge(state, firstPill, secondPill);
     expect(next.board[firstPill]).toBeNull();
     expect(next.board[secondPill]?.defId).toBe("medicine-strip");
     expect(next.message).toContain("Merged Pill");
+  });
+
+  it("reveals adjacent sealed spaces after an item merge", () => {
+    const state = createInitialState();
+    const firstPouch = findPieceIndex(state, "small-pouch");
+    const secondPouch = state.board.findIndex((piece, index) => index > firstPouch && piece?.defId === "small-pouch");
+    expect(secondPouch).toBeGreaterThanOrEqual(0);
+    expect(state.board[9]?.kind).toBe("hidden");
+    const next = moveOrMerge(state, firstPouch, secondPouch);
+    expect(next.board[secondPouch]?.defId).toBe("day-bag");
+    expect(next.board[9]).toBeNull();
+    expect(next.message).toContain("Opened 1 sealed space");
   });
 
   it("moves a normal item into an empty cell", () => {
@@ -77,20 +90,26 @@ describe("merge board mechanics", () => {
     expect(next.message).toContain("No empty space");
   });
 
+  it("does not treat hidden cells as playable empty board space", () => {
+    const state = createInitialState();
+    const hiddenIndex = state.board.findIndex((piece) => piece?.kind === "hidden");
+    const itemIndex = findPieceIndex(state, "rice-ball");
+    const next = moveOrMerge(state, itemIndex, hiddenIndex);
+    expect(next.board[itemIndex]?.defId).toBe("rice-ball");
+    expect(next.board[hiddenIndex]?.kind).toBe("hidden");
+    expect(next.message).toContain("sealed");
+  });
+
   it("fulfills an order, consumes required items, and grants progress", () => {
     const state = createInitialState();
-    const withMedicineStrip = moveOrMerge(state, findPieceIndex(state, "pill"), 2);
-    const withMedBox = {
-      ...withMedicineStrip,
-      board: withMedicineStrip.board.map((piece, index) =>
-        index === 2 ? { ...piece!, defId: "travel-medicine-box" } : piece
-      )
-    };
-    const withCleanser = moveOrMerge(withMedBox, findPieceIndex(withMedBox, "cleanser-sample"), 14);
     const ready = {
-      ...withCleanser,
-      board: withCleanser.board.map((piece, index) =>
-        index === 14 ? { ...piece!, defId: "cleanser-bottle" } : piece
+      ...state,
+      board: state.board.map((piece, index) =>
+        index === 1
+          ? { uid: "ready-medicine-box", kind: "item" as const, defId: "travel-medicine-box" }
+          : index === 2
+            ? { uid: "ready-cleanser-bottle", kind: "item" as const, defId: "cleanser-bottle" }
+            : piece
       )
     };
     const next = fulfillOrder(ready, "departure-prep");

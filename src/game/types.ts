@@ -10,7 +10,7 @@ export type ItemCategory =
   | "shopping"
   | "food";
 
-export type PieceKind = "item" | "generator" | "locked";
+export type PieceKind = "item" | "generator" | "locked" | "hidden";
 
 export interface ItemDef {
   id: string;
@@ -88,4 +88,3 @@ export interface GameState {
   nextUid: number;
   cityChapterId: string;
 }
-
