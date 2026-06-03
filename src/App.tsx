@@ -1,4 +1,4 @@
-import { Backpack, Map as MapIcon, RotateCcw, Sparkles, Zap } from "lucide-react";
+import { Backpack, Coins, Gem, Map as MapIcon, RotateCcw, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./game/content";
 import { createInitialState } from "./game/createInitialState";
@@ -45,13 +45,29 @@ function getFocusedOrderId(state: GameState, chapterOrderIds: string[]): string 
   return chapterOrderIds.find((orderId) => state.activeOrderIds.includes(orderId)) ?? state.activeOrderIds[0] ?? null;
 }
 
+function getRequesterAvatar(requester: string): string {
+  const avatars: Record<string, string> = {
+    Avery: "A",
+    Mina: "M",
+    Mochi: "M",
+    Theo: "T"
+  };
+  return avatars[requester] ?? requester.slice(0, 1);
+}
+
+function formatHudValue(value: number): string {
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K`;
+  }
+  return `${value}`;
+}
+
 export default function App() {
   const [game, setGame] = useState<GameState>(() => createInitialState());
   const chapter = cityChapters[game.cityChapterId];
   const selectedPiece = game.selectedIndex === null ? null : game.board[game.selectedIndex];
   const focusedOrderId = getFocusedOrderId(game, chapter.orderIds);
   const focusedOrder = focusedOrderId ? orderDefs[focusedOrderId] : null;
-  const focusedOrderStep = focusedOrderId ? chapter.orderIds.indexOf(focusedOrderId) + 1 : 0;
 
   const selectedLabel = useMemo(() => getPieceLabel(selectedPiece), [selectedPiece]);
   const focusedRequirementChainIds = useMemo(
@@ -117,49 +133,26 @@ export default function App() {
     <main className="game-shell">
       <section className="phone-frame" aria-label="Travel Merge2 prototype">
         <header className="hud">
-          <div className="hud-pill">
+          <div className="hud-pill" aria-label="Energy">
             <Zap size={16} aria-hidden="true" />
-            <span>{game.energy}</span>
+            <span>{formatHudValue(game.energy)}</span>
           </div>
-          <div className="hud-pill">
+          <div className="hud-pill" aria-label="Stars">
             <Sparkles size={16} aria-hidden="true" />
-            <span>{game.stars}</span>
+            <span>{formatHudValue(game.stars)}</span>
           </div>
-          <div className="hud-progress">
-            {chapter.cityName} {chapter.dayLabel}
-            <strong>{game.cityProgress}/4</strong>
+          <div className="hud-pill" aria-label="Coins">
+            <Coins size={16} aria-hidden="true" />
+            <span>{formatHudValue(game.coins)}</span>
+          </div>
+          <div className="hud-pill" aria-label="Gems">
+            <Gem size={16} aria-hidden="true" />
+            <span>{formatHudValue(game.gems)}</span>
           </div>
           <button className="icon-button" type="button" onClick={resetPrototype} aria-label="Reset prototype">
             <RotateCcw size={18} aria-hidden="true" />
           </button>
         </header>
-
-        <section className="scene-strip">
-          <div>
-            <p className="eyebrow">Current City Layer</p>
-            <h1>{chapter.sceneTitle}</h1>
-            <p>{chapter.sceneSubtitle}</p>
-          </div>
-          <div className="mainline-focus" aria-label="Current route focus">
-            <span>Route Focus</span>
-            <strong>{focusedOrder ? focusedOrder.title : "Chapter Clear"}</strong>
-            <small>
-              Step {focusedOrderStep || chapter.orderIds.length}/{chapter.orderIds.length}
-            </small>
-          </div>
-          <div className="route-track" aria-label="Travel route steps">
-            {chapter.orderIds.map((orderId, index) => {
-              const order = orderDefs[orderId];
-              const completed = game.completedOrderIds.includes(orderId);
-              const active = focusedOrderId === orderId;
-              return (
-                <span className={`${completed ? "completed" : ""} ${active ? "active" : ""}`} key={orderId}>
-                  {index + 1}. {order.requester}
-                </span>
-              );
-            })}
-          </div>
-        </section>
 
         <section className="customer-strip" aria-label="Active customer orders">
           {game.activeOrderIds.map((orderId) => {
@@ -170,12 +163,16 @@ export default function App() {
               <article
                 className={`customer-ticket ${ready ? "ready" : ""} ${focused ? "focused" : ""}`}
                 key={order.id}
+                aria-label={`${focused ? "Focused order" : "Order"}: ${order.title}`}
                 aria-current={focused ? "step" : undefined}
               >
+                <span className="customer-avatar" aria-hidden="true">
+                  {getRequesterAvatar(order.requester)}
+                </span>
                 <div className="ticket-main">
-                  <span className="requester">{focused ? "Route Focus" : order.requester}</span>
+                  <span className="requester">{order.requester}</span>
+                  {focused ? <span className="focus-chip">Route</span> : null}
                   <h2>{order.title}</h2>
-                  <p>{order.flavor}</p>
                 </div>
                 <div className="ticket-requirements" aria-label={`${order.title} requirements`}>
                   {order.requirements.map((requirement) => (
@@ -184,6 +181,9 @@ export default function App() {
                     </span>
                   ))}
                 </div>
+                <span className="ticket-reward" aria-label={`${order.title} reward`}>
+                  <Sparkles size={12} aria-hidden="true" /> +{order.rewardStars}
+                </span>
                 <button type="button" disabled={!ready} onClick={() => handleOrderClick(order.id)}>
                   Deliver
                 </button>

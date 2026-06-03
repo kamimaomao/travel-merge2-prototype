@@ -79,6 +79,8 @@ export interface GameState {
   boardCols: number;
   energy: number;
   stars: number;
+  coins: number;
+  gems: number;
   cityProgress: number;
   catMood: number;
   selectedIndex: number | null;

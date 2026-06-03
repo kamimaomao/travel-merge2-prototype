@@ -3,6 +3,17 @@ import { describe, expect, it } from "vitest";
 import App from "./App";
 
 describe("Travel Merge2 shell", () => {
+  it("uses a compact currency HUD instead of a city progress card", () => {
+    render(<App />);
+
+    expect(screen.getByLabelText("Energy")).toBeTruthy();
+    expect(screen.getByLabelText("Stars")).toBeTruthy();
+    expect(screen.getByLabelText("Coins")).toBeTruthy();
+    expect(screen.getByLabelText("Gems")).toBeTruthy();
+    expect(screen.queryByText("Tokyo Morning Street")).toBeNull();
+    expect(screen.queryByLabelText("Current route focus")).toBeNull();
+  });
+
   it("uses the mature merge-page bottom controls: backpack, info board, and meta exit", () => {
     render(<App />);
 
@@ -20,12 +31,11 @@ describe("Travel Merge2 shell", () => {
     expect(within(orderStrip).getByText("Tokyo Morning Errand")).toBeTruthy();
   });
 
-  it("shows the next chapter order as the route focus and links useful board chains", () => {
+  it("keeps route focus inside the order card and links useful board chains", () => {
     render(<App />);
 
-    const focus = screen.getByLabelText("Current route focus");
-    expect(within(focus).getByText("Departure Prep")).toBeTruthy();
-    expect(within(focus).getByText("Step 1/4")).toBeTruthy();
+    const focusedOrder = screen.getByLabelText("Focused order: Departure Prep");
+    expect(within(focusedOrder).getByText("Route")).toBeTruthy();
     expect(screen.getByLabelText("Pill cell 2").getAttribute("data-route-needed")).toBe("true");
     expect(screen.getByLabelText("Pill cell 3").getAttribute("data-route-needed")).toBe("true");
   });

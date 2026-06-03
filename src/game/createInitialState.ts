@@ -11,6 +11,8 @@ export function createInitialState(): GameState {
     boardCols: 6,
     energy: 72,
     stars: 0,
+    coins: 1280,
+    gems: 36,
     cityProgress: 0,
     catMood: 0,
     selectedIndex: null,
