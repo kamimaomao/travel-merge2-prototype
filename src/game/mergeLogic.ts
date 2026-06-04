@@ -1,4 +1,4 @@
-import { generatorDefs, itemDefs, orderDefs } from "./content";
+import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./content";
 import type { BoardPiece, GameState, WeightedOutput } from "./types";
 
 function cloneState(state: GameState): GameState {
@@ -199,6 +199,18 @@ function consumeRequiredItems(board: Array<BoardPiece | null>, itemId: string, c
   return true;
 }
 
+function findReplacementOrderId(state: GameState, completedOrderId: string, activeOrderIds: string[]): string | null {
+  const orderCycle = cityChapters[state.cityChapterId]?.orderIds ?? Object.keys(orderDefs);
+  const completedIndex = orderCycle.indexOf(completedOrderId);
+  for (let offset = 1; offset <= orderCycle.length; offset += 1) {
+    const candidate = orderCycle[(completedIndex + offset + orderCycle.length) % orderCycle.length];
+    if (!activeOrderIds.includes(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 export function fulfillOrder(state: GameState, orderId: string): GameState {
   const order = orderDefs[orderId];
   if (!order || !state.activeOrderIds.includes(orderId)) {
@@ -219,6 +231,10 @@ export function fulfillOrder(state: GameState, orderId: string): GameState {
     consumeRequiredItems(next.board, requirement.itemId, requirement.count);
   }
   next.activeOrderIds = next.activeOrderIds.filter((activeOrderId) => activeOrderId !== orderId);
+  const replacementOrderId = findReplacementOrderId(state, orderId, next.activeOrderIds);
+  if (replacementOrderId) {
+    next.activeOrderIds.push(replacementOrderId);
+  }
   next.completedOrderIds = [...next.completedOrderIds, orderId];
   next.stars += order.rewardStars;
   next.cityProgress += order.rewardCityProgress;

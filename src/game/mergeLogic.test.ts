@@ -118,4 +118,21 @@ describe("merge board mechanics", () => {
     expect(next.completedOrderIds).toContain("departure-prep");
     expect(next.board.some((piece) => piece?.defId === "travel-medicine-box")).toBe(false);
   });
+
+  it("refills the active order strip from the chapter order cycle", () => {
+    const state = createInitialState();
+    const afterTokyo = fulfillOrder(state, "tokyo-morning-errand");
+    expect(afterTokyo.activeOrderIds).toHaveLength(3);
+    expect(afterTokyo.activeOrderIds).toContain("cast-request");
+
+    const readyForTheo = {
+      ...afterTokyo,
+      board: afterTokyo.board.map((piece, index) =>
+        index === 6 ? { uid: "ready-travel-meal-kit", kind: "item" as const, defId: "travel-meal-kit" } : piece
+      )
+    };
+    const afterTheo = fulfillOrder(readyForTheo, "cast-request");
+    expect(afterTheo.activeOrderIds).toHaveLength(3);
+    expect(afterTheo.activeOrderIds).toContain("tokyo-morning-errand");
+  });
 });

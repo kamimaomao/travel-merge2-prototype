@@ -81,7 +81,13 @@ function getMapSpotStatus(state: GameState, spot: MapSpotDef): MapSpotStatus {
   if (spot.category !== "scenic") {
     return "reserved";
   }
-  return state.unlockedMapSpotIds.includes(spot.id) ? "unlocked" : "locked";
+  if (state.unlockedMapSpotIds.includes(spot.id)) {
+    return "unlocked";
+  }
+  const nextScenicSpot = mapSpotDefs.find(
+    (candidate) => candidate.category === "scenic" && !state.unlockedMapSpotIds.includes(candidate.id)
+  );
+  return nextScenicSpot?.id === spot.id ? "available" : "locked";
 }
 
 function getMapCategoryIcon(category: MapSpotCategory) {
@@ -176,6 +182,10 @@ export default function App() {
       setGame({ ...game, message: `${spot.title} is already part of the postcard.` });
       return;
     }
+    if (status === "locked") {
+      setGame({ ...game, message: `${spot.title} stays in the fog until the scenic route reaches it.` });
+      return;
+    }
     if (game.stars < spot.starCost) {
       setGame({ ...game, message: `${spot.title} needs ${spot.starCost} star${spot.starCost === 1 ? "" : "s"}.` });
       return;
@@ -248,7 +258,15 @@ export default function App() {
                 >
                   <span className="map-spot-icon">{spot.emoji}</span>
                   <strong>{spot.shortLabel}</strong>
-                  <small>{status === "locked" ? `★${spot.starCost}` : status === "reserved" ? "Hook" : "Open"}</small>
+                  <small>
+                    {status === "available"
+                      ? `★${spot.starCost}`
+                      : status === "locked"
+                        ? "Fog"
+                        : status === "reserved"
+                          ? "Hook"
+                          : "Open"}
+                  </small>
                 </button>
               );
             })}

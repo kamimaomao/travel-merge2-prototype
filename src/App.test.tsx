@@ -59,7 +59,12 @@ describe("Travel Merge2 shell", () => {
 
     fireEvent.click(screen.getByLabelText("Deliver Tokyo Morning Errand"));
     fireEvent.click(screen.getByRole("button", { name: "Map" }));
-    fireEvent.click(screen.getByLabelText("Canal Bridge locked"));
+
+    fireEvent.click(screen.getByLabelText("Tower Square locked"));
+    expect(within(screen.getByLabelText("Scenic route progress")).getByText("2/8")).toBeTruthy();
+    expect(screen.getByLabelText("Stars").textContent).toBe("1");
+
+    fireEvent.click(screen.getByLabelText("Canal Bridge available"));
 
     const progress = screen.getByLabelText("Scenic route progress");
     expect(within(progress).getByText("3/8")).toBeTruthy();

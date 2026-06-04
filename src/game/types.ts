@@ -69,7 +69,7 @@ export interface CityChapter {
 }
 
 export type MapSpotCategory = "scenic" | "food" | "shopping" | "culture";
-export type MapSpotStatus = "unlocked" | "locked" | "reserved";
+export type MapSpotStatus = "unlocked" | "available" | "locked" | "reserved";
 
 export interface MapSpotDef {
   id: string;
