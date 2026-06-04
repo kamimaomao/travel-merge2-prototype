@@ -46,70 +46,6 @@ export const itemDefs: Record<string, ItemDef> = {
     scope: "persistent",
     category: "travel"
   },
-  "cleanser-sample": {
-    id: "cleanser-sample",
-    chainId: "toiletry",
-    label: "Cleanser Sample",
-    shortLabel: "Cleanser",
-    emoji: "🧴",
-    level: 1,
-    scope: "persistent",
-    category: "toiletry",
-    nextId: "cleanser-bottle"
-  },
-  "cleanser-bottle": {
-    id: "cleanser-bottle",
-    chainId: "toiletry",
-    label: "Cleanser Bottle",
-    shortLabel: "Bottle",
-    emoji: "🧴",
-    level: 2,
-    scope: "persistent",
-    category: "toiletry",
-    nextId: "skincare-set"
-  },
-  "skincare-set": {
-    id: "skincare-set",
-    chainId: "toiletry",
-    label: "Skincare Set",
-    shortLabel: "Skincare",
-    emoji: "🧼",
-    level: 3,
-    scope: "persistent",
-    category: "toiletry"
-  },
-  pill: {
-    id: "pill",
-    chainId: "medicine",
-    label: "Pill",
-    shortLabel: "Pill",
-    emoji: "💊",
-    level: 1,
-    scope: "persistent",
-    category: "medicine",
-    nextId: "medicine-strip"
-  },
-  "medicine-strip": {
-    id: "medicine-strip",
-    chainId: "medicine",
-    label: "Medicine Strip",
-    shortLabel: "Strip",
-    emoji: "💊",
-    level: 2,
-    scope: "persistent",
-    category: "medicine",
-    nextId: "travel-medicine-box"
-  },
-  "travel-medicine-box": {
-    id: "travel-medicine-box",
-    chainId: "medicine",
-    label: "Travel Medicine Box",
-    shortLabel: "Med Box",
-    emoji: "🩹",
-    level: 3,
-    scope: "persistent",
-    category: "medicine"
-  },
   "instant-noodles": {
     id: "instant-noodles",
     chainId: "general-snack",
@@ -249,34 +185,6 @@ export const generatorDefs: Record<string, GeneratorDef> = {
       { itemId: "backpack", weight: 20 }
     ]
   },
-  "toiletry-kit-1": {
-    id: "toiletry-kit-1",
-    chainId: "toiletry-kit",
-    label: "Toiletry Kit",
-    shortLabel: "Wash",
-    emoji: "🧼",
-    level: 1,
-    energyCost: 1,
-    cityLimited: false,
-    outputs: [
-      { itemId: "cleanser-sample", weight: 80 },
-      { itemId: "cleanser-bottle", weight: 20 }
-    ]
-  },
-  "medicine-pouch-1": {
-    id: "medicine-pouch-1",
-    chainId: "medicine-pouch",
-    label: "Medicine Pouch",
-    shortLabel: "Meds",
-    emoji: "🩹",
-    level: 1,
-    energyCost: 1,
-    cityLimited: false,
-    outputs: [
-      { itemId: "pill", weight: 75 },
-      { itemId: "medicine-strip", weight: 25 }
-    ]
-  },
   "snack-source-1": {
     id: "snack-source-1",
     chainId: "snack-source",
@@ -310,10 +218,10 @@ export const orderDefs: Record<string, OrderDef> = {
     id: "departure-prep",
     requester: "Avery",
     title: "Departure Prep",
-    flavor: "Pack the daily basics before the group leaves the hotel.",
+    flavor: "Pack the day bag and city pass before the group leaves the hotel.",
     requirements: [
-      { itemId: "travel-medicine-box", count: 1 },
-      { itemId: "cleanser-bottle", count: 1 }
+      { itemId: "day-bag", count: 1 },
+      { itemId: "day-pass", count: 1 }
     ],
     rewardStars: 1,
     rewardCityProgress: 1
@@ -365,4 +273,3 @@ export const cityChapters: Record<string, CityChapter> = {
     orderIds: ["departure-prep", "tokyo-morning-errand", "cat-preference", "cast-request"]
   }
 };
-

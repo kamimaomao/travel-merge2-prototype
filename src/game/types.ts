@@ -1,8 +1,6 @@
 export type ItemScope = "persistent" | "city";
 export type ItemCategory =
   | "travel"
-  | "toiletry"
-  | "medicine"
   | "general-food"
   | "local-food"
   | "souvenir"

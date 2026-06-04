@@ -25,8 +25,8 @@ export function createInitialState(): GameState {
     cityChapterId: "tokyoDay1",
     board: [
       piece(1, "generator", "suitcase-1"),
-      piece(2, "item", "pill"),
-      piece(3, "item", "pill"),
+      piece(2, "item", "station-ticket"),
+      piece(3, "item", "station-ticket"),
       hidden(9),
       hidden(10),
       hidden(11),

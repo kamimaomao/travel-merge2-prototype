@@ -20,9 +20,25 @@ describe("travel merge content", () => {
     const cityErrand = orderDefs["tokyo-morning-errand"];
     expect(departure.requirements.map((requirement) => itemDefs[requirement.itemId].scope)).toEqual([
       "persistent",
-      "persistent"
+      "city"
     ]);
     expect(cityErrand.requirements.map((requirement) => itemDefs[requirement.itemId].scope)).toContain("city");
+  });
+
+  it("uses travel and transit for the opening flow without toiletry or medicine content", () => {
+    const state = createInitialState();
+    const openingItemIds = state.board.flatMap((piece) => (piece?.kind === "item" ? [piece.defId] : []));
+    const productContent = JSON.stringify({ itemDefs, generatorDefs }).toLowerCase();
+    expect(openingItemIds.filter((itemId) => itemId === "station-ticket")).toHaveLength(3);
+    expect(productContent).not.toContain("toiletry");
+    expect(productContent).not.toContain("cleanser");
+    expect(productContent).not.toContain("skincare");
+    expect(productContent).not.toContain("medicine");
+    expect(productContent).not.toContain("pill");
+    expect(orderDefs["departure-prep"].requirements.map((requirement) => requirement.itemId)).toEqual([
+      "day-bag",
+      "day-pass"
+    ]);
   });
 
   it("creates a board with resident generators already occupying cells", () => {

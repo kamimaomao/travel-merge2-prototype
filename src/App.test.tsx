@@ -36,8 +36,8 @@ describe("Travel Merge2 shell", () => {
 
     const focusedOrder = screen.getByLabelText("Focused order: Departure Prep");
     expect(within(focusedOrder).getByText("Route")).toBeTruthy();
-    expect(screen.getByLabelText("Pill cell 2").getAttribute("data-route-needed")).toBe("true");
-    expect(screen.getByLabelText("Pill cell 3").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Station Ticket cell 2").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Station Ticket cell 3").getAttribute("data-route-needed")).toBe("true");
   });
 
   it("opens the city postcard map from the merge page and leaves branch hooks visible", () => {

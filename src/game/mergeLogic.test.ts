@@ -30,16 +30,18 @@ describe("merge board mechanics", () => {
 
   it("merges two identical items into the next tier", () => {
     const state = createInitialState();
-    const firstPill = findPieceIndex(state, "pill");
-    const secondPill = state.board.findIndex((piece, index) => index > firstPill && piece?.defId === "pill");
-    expect(secondPill).toBeGreaterThanOrEqual(0);
-    const next = moveOrMerge(state, firstPill, secondPill);
-    expect(next.board[firstPill]).toBeNull();
-    expect(next.board[secondPill]?.defId).toBe("medicine-strip");
-    expect(next.message).toContain("Merged Pill");
+    const firstTicket = findPieceIndex(state, "station-ticket");
+    const secondTicket = state.board.findIndex(
+      (piece, index) => index > firstTicket && piece?.defId === "station-ticket"
+    );
+    expect(secondTicket).toBeGreaterThanOrEqual(0);
+    const next = moveOrMerge(state, firstTicket, secondTicket);
+    expect(next.board[firstTicket]).toBeNull();
+    expect(next.board[secondTicket]?.defId).toBe("day-pass");
+    expect(next.message).toContain("Merged Station Ticket");
   });
 
-  it("reveals adjacent sealed spaces after an item merge", () => {
+  it("reveals usable space after the first travel-bag merge", () => {
     const state = createInitialState();
     const firstPouch = findPieceIndex(state, "small-pouch");
     const secondPouch = state.board.findIndex((piece, index) => index > firstPouch && piece?.defId === "small-pouch");
@@ -106,9 +108,9 @@ describe("merge board mechanics", () => {
       ...state,
       board: state.board.map((piece, index) =>
         index === 1
-          ? { uid: "ready-medicine-box", kind: "item" as const, defId: "travel-medicine-box" }
+          ? { uid: "ready-day-bag", kind: "item" as const, defId: "day-bag" }
           : index === 2
-            ? { uid: "ready-cleanser-bottle", kind: "item" as const, defId: "cleanser-bottle" }
+            ? { uid: "ready-day-pass", kind: "item" as const, defId: "day-pass" }
             : piece
       )
     };
@@ -116,7 +118,7 @@ describe("merge board mechanics", () => {
     expect(next.stars).toBe(ready.stars + 1);
     expect(next.cityProgress).toBe(ready.cityProgress + 1);
     expect(next.completedOrderIds).toContain("departure-prep");
-    expect(next.board.some((piece) => piece?.defId === "travel-medicine-box")).toBe(false);
+    expect(next.board.some((piece) => piece?.defId === "day-bag")).toBe(false);
   });
 
   it("refills the active order strip from the chapter order cycle", () => {

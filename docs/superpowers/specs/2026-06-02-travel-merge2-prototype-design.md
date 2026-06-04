@@ -58,8 +58,6 @@ Initial board composition:
 Persistent generators stay relevant across the long timeline:
 
 - Suitcase: produces packable travel items such as small bag, backpack, clothing, and travel documents.
-- Toiletry kit: produces cleanser, towel, skincare, and similar daily travel items.
-- Medicine pouch: produces medicine, bandage, pill box, and first-aid items.
 - Snack source: can later support instant noodles, drinks, and general food needs.
 
 Current-city generators are chapter-limited:
@@ -73,8 +71,6 @@ The prototype only needs one current-city generator. Shopping and food should be
 Persistent chains:
 
 - Travel prep chain: small pouch -> day bag -> backpack -> organized luggage.
-- Toiletry chain: cleanser sample -> cleanser bottle -> skincare set.
-- Medicine chain: pill -> medicine strip -> travel medicine box.
 - General snack chain: instant noodles -> travel meal kit.
 
 Current-city chains:
@@ -91,7 +87,7 @@ Orders are the main demand driver. Each order can require persistent items, curr
 
 First order set:
 
-- Departure prep: medicine box and cleanser.
+- Departure prep: day bag and city pass.
 - Tokyo morning errand: rice ball and station ticket.
 - Cat preference: small bag and charm.
 - Cast request: travel meal kit or backpack.
