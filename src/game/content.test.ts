@@ -29,7 +29,7 @@ describe("travel merge content", () => {
     const state = createInitialState();
     const openingItemIds = state.board.flatMap((piece) => (piece?.kind === "item" ? [piece.defId] : []));
     const productContent = JSON.stringify({ itemDefs, generatorDefs }).toLowerCase();
-    expect(openingItemIds.filter((itemId) => itemId === "station-ticket")).toHaveLength(3);
+    expect(openingItemIds.filter((itemId) => itemId === "station-ticket")).toHaveLength(1);
     expect(productContent).not.toContain("toiletry");
     expect(productContent).not.toContain("cleanser");
     expect(productContent).not.toContain("skincare");
@@ -45,7 +45,18 @@ describe("travel merge content", () => {
     const state = createInitialState();
     const generatorCells = state.board.filter((piece) => piece?.kind === "generator");
     expect(generatorCells.map((piece) => piece?.defId)).toContain("suitcase-1");
+    expect(generatorCells.map((piece) => piece?.defId)).toContain("travel-guidebook-1");
+    expect(generatorCells.map((piece) => piece?.defId)).toContain("camera-kit-1");
+    expect(generatorCells.map((piece) => piece?.defId)).toContain("festival-voucher-1");
+    expect(generatorCells.map((piece) => piece?.defId)).toContain("souvenir-gift-box");
     expect(generatorCells.map((piece) => piece?.defId)).toContain("tokyo-convenience-bag-1");
+  });
+
+  it("defines the six common source patterns used by modern Merge2 boards", () => {
+    const sourceTypes = new Set(Object.values(generatorDefs).map((generator) => generator.sourceType));
+    expect(sourceTypes).toEqual(
+      new Set(["permanent", "upgradeable", "charge", "finite", "container", "sealed"])
+    );
   });
 
   it("starts with a hidden-information reveal board and a small working pocket", () => {
@@ -53,10 +64,10 @@ describe("travel merge content", () => {
     const hiddenCells = state.board.filter((piece) => piece?.kind === "hidden");
     const directlyPlayableCells = state.board.filter((piece) => piece === null || piece.kind !== "hidden");
     expect(state.board.length).toBe(state.boardCols * state.boardCols);
-    expect(hiddenCells.length).toBeGreaterThanOrEqual(27);
-    expect(hiddenCells.length).toBeLessThanOrEqual(30);
-    expect(directlyPlayableCells.length).toBeGreaterThanOrEqual(6);
-    expect(directlyPlayableCells.length).toBeLessThanOrEqual(9);
+    expect(hiddenCells.length).toBeGreaterThanOrEqual(20);
+    expect(hiddenCells.length).toBeLessThanOrEqual(22);
+    expect(directlyPlayableCells.length).toBeGreaterThanOrEqual(13);
+    expect(directlyPlayableCells.length).toBeLessThanOrEqual(15);
     expect(directlyPlayableCells.some((piece) => piece?.kind === "generator")).toBe(true);
   });
 });

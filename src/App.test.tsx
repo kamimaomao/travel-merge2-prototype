@@ -36,8 +36,72 @@ describe("Travel Merge2 shell", () => {
 
     const focusedOrder = screen.getByLabelText("Focused order: Departure Prep");
     expect(within(focusedOrder).getByText("Route")).toBeTruthy();
-    expect(screen.getByLabelText("Station Ticket cell 2").getAttribute("data-route-needed")).toBe("true");
-    expect(screen.getByLabelText("Station Ticket cell 3").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Small Pouch cell 8").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Small Pouch cell 9").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Station Ticket cell 15").getAttribute("data-route-needed")).toBe("true");
+  });
+
+  it("surfaces the six merge source patterns directly on the opening board", () => {
+    render(<App />);
+
+    expect(screen.getByLabelText("Suitcase cell 1").getAttribute("data-source-type")).toBe("permanent");
+    expect(screen.getByLabelText("Guidebook cell 2").getAttribute("data-source-type")).toBe("upgradeable");
+    expect(screen.getByLabelText("Camera Kit cell 4").getAttribute("data-source-type")).toBe("charge");
+    expect(screen.getByLabelText("Festival Voucher cell 5").getAttribute("data-source-type")).toBe("finite");
+    expect(screen.getByLabelText("Souvenir Gift Box cell 6").getAttribute("data-source-type")).toBe("container");
+    expect(screen.getByLabelText("Locked Map Cache cell 10").getAttribute("data-source-type")).toBe("sealed");
+  });
+
+  it("uses taps for inspection instead of moving pieces between cells", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByLabelText("Small Pouch cell 8"));
+    fireEvent.click(screen.getByLabelText("Empty cell 7"));
+
+    expect(screen.getByLabelText("Small Pouch cell 8")).toBeTruthy();
+    expect(screen.getByLabelText("Empty cell 7")).toBeTruthy();
+  });
+
+  it("merges identical pieces through a pointer drag", () => {
+    render(<App />);
+
+    const source = screen.getByLabelText("Small Pouch cell 8");
+    const target = screen.getByLabelText("Small Pouch cell 9");
+    fireEvent.pointerDown(source, { pointerId: 1, clientX: 20, clientY: 20 });
+    fireEvent.pointerEnter(target, { pointerId: 1, clientX: 70, clientY: 20 });
+
+    expect(source.getAttribute("data-dragging")).toBe("true");
+    expect(target.getAttribute("data-drop-intent")).toBe("merge");
+    expect(screen.getByLabelText("Dragging Small Pouch")).toBeTruthy();
+
+    fireEvent.pointerUp(target, { pointerId: 1, clientX: 70, clientY: 20 });
+
+    expect(screen.getByLabelText("Empty cell 8")).toBeTruthy();
+    expect(screen.getByLabelText("Day Bag cell 9")).toBeTruthy();
+    expect(screen.getByLabelText("Map Cache cell 10")).toBeTruthy();
+  });
+
+  it("keeps generator tap production after drag becomes the move interaction", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByLabelText("Suitcase cell 1"));
+
+    expect(screen.getByLabelText("Energy").textContent).toBe("71");
+  });
+
+  it("does not produce from a generator after a canceled drag gesture", () => {
+    render(<App />);
+
+    const generator = screen.getByLabelText("Suitcase cell 1");
+    const hiddenTarget = screen.getByLabelText("Sealed travel space cell 16");
+    fireEvent.pointerDown(generator, { pointerId: 1, clientX: 20, clientY: 20 });
+    fireEvent.pointerEnter(hiddenTarget, { pointerId: 1, clientX: 170, clientY: 20 });
+    fireEvent.pointerEnter(generator, { pointerId: 1, clientX: 20, clientY: 20 });
+    fireEvent.pointerUp(generator, { pointerId: 1, clientX: 20, clientY: 20 });
+    fireEvent.click(generator);
+
+    expect(screen.getByLabelText("Energy").textContent).toBe("72");
+    expect(screen.getByLabelText("Suitcase cell 1")).toBeTruthy();
   });
 
   it("opens the city postcard map from the merge page and leaves branch hooks visible", () => {
@@ -70,5 +134,19 @@ describe("Travel Merge2 shell", () => {
     expect(within(progress).getByText("3/8")).toBeTruthy();
     expect(screen.getByLabelText("Canal Bridge unlocked")).toBeTruthy();
     expect(screen.getByLabelText("Stars").textContent).toBe("0");
+  });
+
+  it("feeds the first map unlock back into a new playable merge beat", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByLabelText("Deliver Tokyo Morning Errand"));
+    fireEvent.click(screen.getByRole("button", { name: "Map" }));
+    fireEvent.click(screen.getByLabelText("Canal Bridge available"));
+    fireEvent.click(screen.getByRole("button", { name: "Back to merge board" }));
+
+    const focusedOrder = screen.getByLabelText("Focused order: Late Train Backup");
+    expect(within(focusedOrder).getByText("Route")).toBeTruthy();
+    expect(screen.getByLabelText("Snack Source cell 7").getAttribute("data-route-needed")).toBe("true");
+    expect(screen.getByLabelText("Locked Instant Noodles cell 11").getAttribute("data-route-needed")).toBe("true");
   });
 });

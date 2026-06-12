@@ -1,6 +1,8 @@
 import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./content";
 import type { BoardPiece, GameState, WeightedOutput } from "./types";
 
+export type DropIntent = "move" | "merge" | "invalid";
+
 function cloneState(state: GameState): GameState {
   return {
     ...state,
@@ -40,22 +42,55 @@ function findEmptySlot(state: GameState, sourceIndex: number): number {
   return state.board.findIndex((piece) => piece === null);
 }
 
-function revealAdjacentHidden(board: Array<BoardPiece | null>, index: number, cols: number): number {
-  let revealCount = 0;
+function openAdjacentSealedCells(
+  board: Array<BoardPiece | null>,
+  index: number,
+  cols: number
+): { spaces: number; sources: number } {
+  let spaces = 0;
+  let sources = 0;
   for (const adjacentIndex of adjacentIndexes(index, cols, board.length)) {
-    if (board[adjacentIndex]?.kind === "hidden") {
+    const adjacentPiece = board[adjacentIndex];
+    if (adjacentPiece?.kind === "hidden") {
+      const generatorDef = generatorDefs[adjacentPiece.defId];
+      const itemDef = itemDefs[adjacentPiece.defId];
+      if (generatorDef) {
+        board[adjacentIndex] = { ...adjacentPiece, kind: "generator" };
+        sources += 1;
+        continue;
+      }
+      if (itemDef) {
+        board[adjacentIndex] = { ...adjacentPiece, kind: "item" };
+        spaces += 1;
+        continue;
+      }
       board[adjacentIndex] = null;
-      revealCount += 1;
+      spaces += 1;
+      continue;
+    }
+    if (
+      adjacentPiece?.kind === "locked" &&
+      generatorDefs[adjacentPiece.defId]?.sourceType === "sealed"
+    ) {
+      board[adjacentIndex] = { ...adjacentPiece, kind: "generator" };
+      sources += 1;
     }
   }
-  return revealCount;
+  return { spaces, sources };
 }
 
-function mergeMessage(message: string, revealCount: number): string {
-  if (revealCount <= 0) {
+function mergeMessage(message: string, opened: { spaces: number; sources: number }): string {
+  const fragments: string[] = [];
+  if (opened.spaces > 0) {
+    fragments.push(`Opened ${opened.spaces} sealed space${opened.spaces === 1 ? "" : "s"}.`);
+  }
+  if (opened.sources > 0) {
+    fragments.push(`Opened ${opened.sources} sealed source${opened.sources === 1 ? "" : "s"}.`);
+  }
+  if (fragments.length === 0) {
     return message;
   }
-  return `${message} Opened ${revealCount} sealed space${revealCount === 1 ? "" : "s"}.`;
+  return `${message} ${fragments.join(" ")}`;
 }
 
 function pickOutput(outputs: WeightedOutput[], roll: number): string {
@@ -71,6 +106,59 @@ function pickOutput(outputs: WeightedOutput[], roll: number): string {
   return outputs[outputs.length - 1].itemId;
 }
 
+function pickGeneratorOutput(generatorId: string, sourcePiece: BoardPiece, roll: number): string | null {
+  const generator = generatorDefs[generatorId];
+  const sequenceOutputs = generator.sequenceOutputs ?? [];
+  if (sequenceOutputs.length > 0) {
+    const sequenceIndex = sourcePiece.sequenceIndex ?? 0;
+    return sequenceOutputs[sequenceIndex % sequenceOutputs.length];
+  }
+  if (generator.outputs.length === 0) {
+    return null;
+  }
+  return pickOutput(generator.outputs, roll);
+}
+
+function formatRewards(coins: number, gems: number, stars: number): string {
+  const rewards = [
+    coins > 0 ? `+${coins} coins` : null,
+    gems > 0 ? `+${gems} gems` : null,
+    stars > 0 ? `+${stars} stars` : null
+  ].filter(Boolean);
+  return rewards.length > 0 ? rewards.join(", ") : "stored rewards";
+}
+
+export function getDropIntent(state: GameState, fromIndex: number, toIndex: number): DropIntent | null {
+  const sourcePiece = state.board[fromIndex];
+  const targetPiece = state.board[toIndex];
+  if (!sourcePiece || sourcePiece.kind === "locked" || sourcePiece.kind === "hidden" || fromIndex === toIndex) {
+    return null;
+  }
+  if (!targetPiece) {
+    return "move";
+  }
+  if (targetPiece.kind === "hidden") {
+    return "invalid";
+  }
+  if (targetPiece.kind === "locked") {
+    return sourcePiece.kind === "item" &&
+      sourcePiece.defId === targetPiece.defId &&
+      Boolean(itemDefs[sourcePiece.defId]?.nextId)
+      ? "merge"
+      : "invalid";
+  }
+  if (targetPiece.kind !== sourcePiece.kind || targetPiece.defId !== sourcePiece.defId) {
+    return "invalid";
+  }
+  if (sourcePiece.kind === "item") {
+    return itemDefs[sourcePiece.defId]?.nextId ? "merge" : "invalid";
+  }
+  if (sourcePiece.kind === "generator") {
+    return generatorDefs[sourcePiece.defId]?.nextId ? "merge" : "invalid";
+  }
+  return "invalid";
+}
+
 export function emitFromGenerator(state: GameState, generatorIndex: number, roll = Math.random()): GameState {
   const sourcePiece = state.board[generatorIndex];
   if (!sourcePiece || sourcePiece.kind !== "generator") {
@@ -82,8 +170,32 @@ export function emitFromGenerator(state: GameState, generatorIndex: number, roll
     return { ...state, selectedIndex: null, message: "This generator is not configured." };
   }
 
+  if (generator.sourceType === "container") {
+    const next = cloneState(state);
+    const rewardCoins = generator.rewardCoins ?? 0;
+    const rewardGems = generator.rewardGems ?? 0;
+    const rewardStars = generator.rewardStars ?? 0;
+    next.board[generatorIndex] = null;
+    next.coins += rewardCoins;
+    next.gems += rewardGems;
+    next.stars += rewardStars;
+    next.selectedIndex = null;
+    next.message = `${generator.label} opened: ${formatRewards(rewardCoins, rewardGems, rewardStars)}.`;
+    return next;
+  }
+
   if (state.energy < generator.energyCost) {
     return { ...state, selectedIndex: null, message: "Not enough energy to produce an item." };
+  }
+
+  const isLimitedSource = generator.sourceType === "charge" || generator.sourceType === "finite";
+  const remainingTaps = sourcePiece.remainingTaps ?? generator.maxTaps ?? 0;
+  if (isLimitedSource && remainingTaps <= 0) {
+    return {
+      ...state,
+      selectedIndex: generatorIndex,
+      message: `${generator.label} needs a refresh before it can produce again.`
+    };
   }
 
   const emptySlot = findEmptySlot(state, generatorIndex);
@@ -91,7 +203,10 @@ export function emitFromGenerator(state: GameState, generatorIndex: number, roll
     return { ...state, selectedIndex: null, message: "No empty space on the board." };
   }
 
-  const outputId = pickOutput(generator.outputs, roll);
+  const outputId = pickGeneratorOutput(sourcePiece.defId, sourcePiece, roll);
+  if (!outputId) {
+    return { ...state, selectedIndex: null, message: `${generator.label} has no configured output.` };
+  }
   const outputDef = itemDefs[outputId];
   const [uid, nextUidValue] = nextUid(state);
   const next = cloneState(state);
@@ -99,6 +214,28 @@ export function emitFromGenerator(state: GameState, generatorIndex: number, roll
   next.energy -= generator.energyCost;
   next.nextUid = nextUidValue;
   next.selectedIndex = emptySlot;
+  const nextSequenceIndex = (sourcePiece.sequenceIndex ?? 0) + 1;
+  if (isLimitedSource) {
+    const nextRemainingTaps = remainingTaps - 1;
+    if (generator.sourceType === "finite" && nextRemainingTaps <= 0) {
+      next.board[generatorIndex] = null;
+      next.message = `${generator.label} produced ${outputDef.label}. ${generator.label} was used up.`;
+      return next;
+    }
+    next.board[generatorIndex] = {
+      ...sourcePiece,
+      remainingTaps: nextRemainingTaps,
+      sequenceIndex: nextSequenceIndex
+    };
+    next.message =
+      nextRemainingTaps > 0
+        ? `${generator.label} produced ${outputDef.label}.`
+        : `${generator.label} produced ${outputDef.label}. It needs a refresh.`;
+    return next;
+  }
+  if (generator.sequenceOutputs?.length) {
+    next.board[generatorIndex] = { ...sourcePiece, sequenceIndex: nextSequenceIndex };
+  }
   next.message = `${generator.label} produced ${outputDef.label}.`;
   return next;
 }
@@ -145,8 +282,8 @@ export function moveOrMerge(state: GameState, fromIndex: number, toIndex: number
     next.board[toIndex] = { ...targetPiece, kind: "item", defId: itemDef.nextId };
     next.board[fromIndex] = null;
     next.selectedIndex = toIndex;
-    const revealCount = revealAdjacentHidden(next.board, toIndex, state.boardCols);
-    next.message = mergeMessage(`Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`, revealCount);
+    const opened = openAdjacentSealedCells(next.board, toIndex, state.boardCols);
+    next.message = mergeMessage(`Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`, opened);
     return next;
   }
 
@@ -162,8 +299,8 @@ export function moveOrMerge(state: GameState, fromIndex: number, toIndex: number
     next.board[toIndex] = { ...targetPiece, defId: itemDef.nextId };
     next.board[fromIndex] = null;
     next.selectedIndex = toIndex;
-    const revealCount = revealAdjacentHidden(next.board, toIndex, state.boardCols);
-    next.message = mergeMessage(`Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`, revealCount);
+    const opened = openAdjacentSealedCells(next.board, toIndex, state.boardCols);
+    next.message = mergeMessage(`Merged ${itemDef.label} into ${itemDefs[itemDef.nextId].label}.`, opened);
     return next;
   }
 
@@ -172,7 +309,7 @@ export function moveOrMerge(state: GameState, fromIndex: number, toIndex: number
     if (!generatorDef.nextId) {
       return { ...state, selectedIndex: null, message: `${generatorDef.label} cannot upgrade in this prototype.` };
     }
-    next.board[toIndex] = { ...targetPiece, defId: generatorDef.nextId };
+    next.board[toIndex] = { uid: targetPiece.uid, kind: "generator", defId: generatorDef.nextId };
     next.board[fromIndex] = null;
     next.selectedIndex = toIndex;
     next.message = `Upgraded ${generatorDef.label}.`;

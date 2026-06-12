@@ -164,6 +164,7 @@ export const generatorDefs: Record<string, GeneratorDef> = {
     level: 1,
     energyCost: 1,
     cityLimited: false,
+    sourceType: "permanent",
     nextId: "suitcase-2",
     outputs: [
       { itemId: "small-pouch", weight: 70 },
@@ -179,10 +180,108 @@ export const generatorDefs: Record<string, GeneratorDef> = {
     level: 2,
     energyCost: 1,
     cityLimited: false,
+    sourceType: "permanent",
     outputs: [
       { itemId: "small-pouch", weight: 35 },
       { itemId: "day-bag", weight: 45 },
       { itemId: "backpack", weight: 20 }
+    ]
+  },
+  "travel-guidebook-1": {
+    id: "travel-guidebook-1",
+    chainId: "travel-guidebook",
+    label: "Guidebook",
+    shortLabel: "Guide",
+    emoji: "📘",
+    level: 1,
+    energyCost: 1,
+    cityLimited: false,
+    sourceType: "upgradeable",
+    nextId: "travel-guidebook-2",
+    outputs: [
+      { itemId: "station-ticket", weight: 55 },
+      { itemId: "charm", weight: 45 }
+    ]
+  },
+  "travel-guidebook-2": {
+    id: "travel-guidebook-2",
+    chainId: "travel-guidebook",
+    label: "Marked Guidebook",
+    shortLabel: "Guide+",
+    emoji: "📘",
+    level: 2,
+    energyCost: 1,
+    cityLimited: false,
+    sourceType: "upgradeable",
+    outputs: [
+      { itemId: "station-ticket", weight: 35 },
+      { itemId: "day-pass", weight: 20 },
+      { itemId: "charm", weight: 45 }
+    ]
+  },
+  "camera-kit-1": {
+    id: "camera-kit-1",
+    chainId: "camera-kit",
+    label: "Camera Kit",
+    shortLabel: "Camera",
+    emoji: "📷",
+    level: 1,
+    energyCost: 1,
+    cityLimited: false,
+    sourceType: "charge",
+    maxTaps: 2,
+    sequenceOutputs: ["charm", "station-ticket"],
+    outputs: [
+      { itemId: "charm", weight: 50 },
+      { itemId: "station-ticket", weight: 50 }
+    ]
+  },
+  "festival-voucher-1": {
+    id: "festival-voucher-1",
+    chainId: "festival-voucher",
+    label: "Festival Voucher",
+    shortLabel: "Fest",
+    emoji: "🎟️",
+    level: 1,
+    energyCost: 1,
+    cityLimited: true,
+    sourceType: "finite",
+    maxTaps: 3,
+    sequenceOutputs: ["rice-ball", "charm", "station-ticket"],
+    outputs: [
+      { itemId: "rice-ball", weight: 34 },
+      { itemId: "charm", weight: 33 },
+      { itemId: "station-ticket", weight: 33 }
+    ]
+  },
+  "souvenir-gift-box": {
+    id: "souvenir-gift-box",
+    chainId: "souvenir-gift-box",
+    label: "Souvenir Gift Box",
+    shortLabel: "Gift",
+    emoji: "🎁",
+    level: 1,
+    energyCost: 0,
+    cityLimited: true,
+    sourceType: "container",
+    rewardCoins: 180,
+    rewardGems: 2,
+    outputs: []
+  },
+  "sealed-map-cache": {
+    id: "sealed-map-cache",
+    chainId: "sealed-map-cache",
+    label: "Map Cache",
+    shortLabel: "Cache",
+    emoji: "🗺️",
+    level: 1,
+    energyCost: 1,
+    cityLimited: true,
+    sourceType: "sealed",
+    sequenceOutputs: ["station-ticket", "charm"],
+    outputs: [
+      { itemId: "station-ticket", weight: 60 },
+      { itemId: "charm", weight: 40 }
     ]
   },
   "snack-source-1": {
@@ -194,6 +293,7 @@ export const generatorDefs: Record<string, GeneratorDef> = {
     level: 1,
     energyCost: 1,
     cityLimited: false,
+    sourceType: "permanent",
     outputs: [{ itemId: "instant-noodles", weight: 100 }]
   },
   "tokyo-convenience-bag-1": {
@@ -205,6 +305,7 @@ export const generatorDefs: Record<string, GeneratorDef> = {
     level: 1,
     energyCost: 1,
     cityLimited: true,
+    sourceType: "permanent",
     outputs: [
       { itemId: "rice-ball", weight: 42 },
       { itemId: "charm", weight: 28 },

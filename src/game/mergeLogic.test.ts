@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState } from "./createInitialState";
-import { emitFromGenerator, fulfillOrder, moveOrMerge } from "./mergeLogic";
+import { emitFromGenerator, fulfillOrder, getDropIntent, moveOrMerge } from "./mergeLogic";
 import type { GameState } from "./types";
 
 function findPieceIndex(state: GameState, defId: string): number {
@@ -10,6 +10,20 @@ function findPieceIndex(state: GameState, defId: string): number {
 }
 
 describe("merge board mechanics", () => {
+  it("classifies drag targets before resolving a drop", () => {
+    const state = createInitialState();
+    const firstPouch = findPieceIndex(state, "small-pouch");
+    const secondPouch = state.board.findIndex((piece, index) => index > firstPouch && piece?.defId === "small-pouch");
+    const emptyIndex = state.board.findIndex((piece) => piece === null);
+    const hiddenIndex = state.board.findIndex((piece) => piece?.kind === "hidden");
+    const riceBallIndex = findPieceIndex(state, "rice-ball");
+
+    expect(getDropIntent(state, firstPouch, emptyIndex)).toBe("move");
+    expect(getDropIntent(state, firstPouch, secondPouch)).toBe("merge");
+    expect(getDropIntent(state, firstPouch, riceBallIndex)).toBe("invalid");
+    expect(getDropIntent(state, firstPouch, hiddenIndex)).toBe("invalid");
+  });
+
   it("emits from a board-resident persistent generator and consumes energy", () => {
     const state = createInitialState();
     const suitcaseIndex = findPieceIndex(state, "suitcase-1");
@@ -30,27 +44,73 @@ describe("merge board mechanics", () => {
 
   it("merges two identical items into the next tier", () => {
     const state = createInitialState();
-    const firstTicket = findPieceIndex(state, "station-ticket");
-    const secondTicket = state.board.findIndex(
-      (piece, index) => index > firstTicket && piece?.defId === "station-ticket"
-    );
-    expect(secondTicket).toBeGreaterThanOrEqual(0);
-    const next = moveOrMerge(state, firstTicket, secondTicket);
-    expect(next.board[firstTicket]).toBeNull();
-    expect(next.board[secondTicket]?.defId).toBe("day-pass");
-    expect(next.message).toContain("Merged Station Ticket");
+    const firstPouch = findPieceIndex(state, "small-pouch");
+    const secondPouch = state.board.findIndex((piece, index) => index > firstPouch && piece?.defId === "small-pouch");
+    expect(secondPouch).toBeGreaterThanOrEqual(0);
+    const next = moveOrMerge(state, firstPouch, secondPouch);
+    expect(next.board[firstPouch]).toBeNull();
+    expect(next.board[secondPouch]?.defId).toBe("day-bag");
+    expect(next.message).toContain("Merged Small Pouch");
   });
 
-  it("reveals usable space after the first travel-bag merge", () => {
+  it("unlocks a sealed source after the first travel-bag merge", () => {
     const state = createInitialState();
     const firstPouch = findPieceIndex(state, "small-pouch");
     const secondPouch = state.board.findIndex((piece, index) => index > firstPouch && piece?.defId === "small-pouch");
     expect(secondPouch).toBeGreaterThanOrEqual(0);
-    expect(state.board[9]?.kind).toBe("hidden");
+    expect(state.board[9]?.kind).toBe("locked");
+    expect(state.board[9]?.defId).toBe("sealed-map-cache");
     const next = moveOrMerge(state, firstPouch, secondPouch);
     expect(next.board[secondPouch]?.defId).toBe("day-bag");
-    expect(next.board[9]).toBeNull();
-    expect(next.message).toContain("Opened 1 sealed space");
+    expect(next.board[9]?.kind).toBe("generator");
+    expect(next.board[9]?.defId).toBe("sealed-map-cache");
+    expect(next.message).toContain("Opened 1 sealed source");
+  });
+
+  it("spends charges from a cooldown-style source before it needs refresh", () => {
+    const state = createInitialState();
+    const cameraIndex = findPieceIndex(state, "camera-kit-1");
+
+    const first = emitFromGenerator(state, cameraIndex, 0.1);
+    expect(first.board[cameraIndex]?.remainingTaps).toBe(1);
+    expect(first.energy).toBe(state.energy - 1);
+
+    const second = emitFromGenerator(first, cameraIndex, 0.1);
+    expect(second.board[cameraIndex]?.remainingTaps).toBe(0);
+    expect(second.energy).toBe(state.energy - 2);
+
+    const third = emitFromGenerator(second, cameraIndex, 0.1);
+    expect(third.board[cameraIndex]?.remainingTaps).toBe(0);
+    expect(third.energy).toBe(second.energy);
+    expect(third.message).toContain("needs a refresh");
+  });
+
+  it("consumes a finite activity-style source after its last use", () => {
+    const state = createInitialState();
+    const voucherIndex = findPieceIndex(state, "festival-voucher-1");
+
+    const first = emitFromGenerator(state, voucherIndex, 0.1);
+    expect(first.board[voucherIndex]?.remainingTaps).toBe(2);
+
+    const second = emitFromGenerator(first, voucherIndex, 0.1);
+    expect(second.board[voucherIndex]?.remainingTaps).toBe(1);
+
+    const third = emitFromGenerator(second, voucherIndex, 0.1);
+    expect(third.board[voucherIndex]).toBeNull();
+    expect(third.energy).toBe(state.energy - 3);
+    expect(third.message).toContain("Festival Voucher was used up");
+  });
+
+  it("opens a one-time container source into currencies without needing empty board space", () => {
+    const state = createInitialState();
+    const chestIndex = findPieceIndex(state, "souvenir-gift-box");
+    const next = emitFromGenerator(state, chestIndex);
+
+    expect(next.board[chestIndex]).toBeNull();
+    expect(next.energy).toBe(state.energy);
+    expect(next.coins).toBeGreaterThan(state.coins);
+    expect(next.gems).toBeGreaterThan(state.gems);
+    expect(next.message).toContain("Souvenir Gift Box opened");
   });
 
   it("moves a normal item into an empty cell", () => {

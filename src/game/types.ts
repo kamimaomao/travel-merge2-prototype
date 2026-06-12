@@ -27,6 +27,8 @@ export interface WeightedOutput {
   weight: number;
 }
 
+export type GeneratorSourceType = "permanent" | "upgradeable" | "charge" | "finite" | "container" | "sealed";
+
 export interface GeneratorDef {
   id: string;
   chainId: string;
@@ -37,7 +39,13 @@ export interface GeneratorDef {
   energyCost: number;
   outputs: WeightedOutput[];
   cityLimited: boolean;
+  sourceType: GeneratorSourceType;
   nextId?: string;
+  maxTaps?: number;
+  sequenceOutputs?: string[];
+  rewardCoins?: number;
+  rewardGems?: number;
+  rewardStars?: number;
 }
 
 export interface OrderRequirement {
@@ -84,6 +92,8 @@ export interface BoardPiece {
   uid: string;
   kind: PieceKind;
   defId: string;
+  remainingTaps?: number;
+  sequenceIndex?: number;
 }
 
 export interface GameState {
@@ -96,6 +106,7 @@ export interface GameState {
   cityProgress: number;
   catMood: number;
   selectedIndex: number | null;
+  focusedOrderId?: string | null;
   activeOrderIds: string[];
   completedOrderIds: string[];
   unlockedMapSpotIds: string[];

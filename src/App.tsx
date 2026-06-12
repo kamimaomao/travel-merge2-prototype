@@ -11,14 +11,31 @@ import {
   Utensils,
   Zap
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./game/content";
 import { createInitialState } from "./game/createInitialState";
 import { mapSpotDefs } from "./game/mapContent";
-import { emitFromGenerator, fulfillOrder, moveOrMerge } from "./game/mergeLogic";
-import type { BoardPiece, GameState, MapSpotCategory, MapSpotDef, MapSpotStatus } from "./game/types";
+import { emitFromGenerator, fulfillOrder, getDropIntent, moveOrMerge } from "./game/mergeLogic";
+import { getMapSpotStatus, unlockMapSpot } from "./game/progressionLogic";
+import type {
+  BoardPiece,
+  GameState,
+  GeneratorSourceType,
+  MapSpotCategory,
+  MapSpotDef,
+} from "./game/types";
 
 type AppView = "merge" | "map";
+type DragState = {
+  fromIndex: number;
+  overIndex: number | null;
+  hasMoved: boolean;
+  startX: number;
+  startY: number;
+  clientX: number;
+  clientY: number;
+};
 
 function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: string; label: string; className: string } {
   if (!piece) {
@@ -28,6 +45,24 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
     return { emoji: "◇", shortLabel: "Sealed", label: "Sealed travel space", className: "hidden" };
   }
   if (piece.kind === "locked") {
+    const generator = generatorDefs[piece.defId];
+    if (generator) {
+      return {
+        emoji: generator.emoji,
+        shortLabel: generator.shortLabel,
+        label: `Locked ${generator.label}`,
+        className: "locked locked-generator"
+      };
+    }
+    const item = itemDefs[piece.defId];
+    if (item) {
+      return {
+        emoji: item.emoji,
+        shortLabel: item.shortLabel,
+        label: `Locked ${item.label}`,
+        className: `locked locked-item ${item.scope === "city" ? "city-item" : "persistent-item"}`
+      };
+    }
     return { emoji: "📦", shortLabel: "Locked", label: "Locked travel space", className: "locked" };
   }
   if (piece.kind === "generator") {
@@ -36,7 +71,9 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
       emoji: generator.emoji,
       shortLabel: generator.shortLabel,
       label: generator.label,
-      className: generator.cityLimited ? "generator city-generator" : "generator persistent-generator"
+      className: `${generator.cityLimited ? "generator city-generator" : "generator persistent-generator"} source-${
+        generator.sourceType
+      }`
     };
   }
   const item = itemDefs[piece.defId];
@@ -48,6 +85,33 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
   };
 }
 
+function getSourceType(piece: BoardPiece | null): GeneratorSourceType | null {
+  if (!piece || (piece.kind !== "generator" && piece.kind !== "locked")) {
+    return null;
+  }
+  return generatorDefs[piece.defId]?.sourceType ?? null;
+}
+
+function getSourceBadge(piece: BoardPiece | null): string | null {
+  const sourceType = getSourceType(piece);
+  if (!piece || !sourceType) {
+    return null;
+  }
+  const generator = generatorDefs[piece.defId];
+  if (sourceType === "charge" || sourceType === "finite") {
+    return `${piece.remainingTaps ?? generator.maxTaps ?? 0}`;
+  }
+  const labels: Record<GeneratorSourceType, string> = {
+    permanent: "Main",
+    upgradeable: "Merge",
+    charge: "0",
+    finite: "0",
+    container: "Open",
+    sealed: piece.kind === "locked" ? "Lock" : "Gate"
+  };
+  return labels[sourceType];
+}
+
 function canFulfillOrder(state: GameState, orderId: string): boolean {
   const order = orderDefs[orderId];
   return order.requirements.every((requirement) => {
@@ -57,7 +121,32 @@ function canFulfillOrder(state: GameState, orderId: string): boolean {
 }
 
 function getFocusedOrderId(state: GameState, chapterOrderIds: string[]): string | null {
+  if (state.focusedOrderId && state.activeOrderIds.includes(state.focusedOrderId)) {
+    return state.focusedOrderId;
+  }
   return chapterOrderIds.find((orderId) => state.activeOrderIds.includes(orderId)) ?? state.activeOrderIds[0] ?? null;
+}
+
+function pieceMatchesRoute(piece: BoardPiece | null, focusedRequirementChainIds: Set<string>): boolean {
+  if (!piece || focusedRequirementChainIds.size === 0 || piece.kind === "hidden") {
+    return false;
+  }
+  const item = itemDefs[piece.defId];
+  if (item) {
+    return focusedRequirementChainIds.has(item.chainId);
+  }
+  if (piece.kind !== "generator" && piece.kind !== "locked") {
+    return false;
+  }
+  const generator = generatorDefs[piece.defId];
+  if (!generator) {
+    return false;
+  }
+  const outputIds = [...(generator.sequenceOutputs ?? []), ...generator.outputs.map((output) => output.itemId)];
+  return outputIds.some((itemId) => {
+    const outputItem = itemDefs[itemId];
+    return outputItem ? focusedRequirementChainIds.has(outputItem.chainId) : false;
+  });
 }
 
 function getRequesterAvatar(requester: string): string {
@@ -77,19 +166,6 @@ function formatHudValue(value: number): string {
   return `${value}`;
 }
 
-function getMapSpotStatus(state: GameState, spot: MapSpotDef): MapSpotStatus {
-  if (spot.category !== "scenic") {
-    return "reserved";
-  }
-  if (state.unlockedMapSpotIds.includes(spot.id)) {
-    return "unlocked";
-  }
-  const nextScenicSpot = mapSpotDefs.find(
-    (candidate) => candidate.category === "scenic" && !state.unlockedMapSpotIds.includes(candidate.id)
-  );
-  return nextScenicSpot?.id === spot.id ? "available" : "locked";
-}
-
 function getMapCategoryIcon(category: MapSpotCategory) {
   if (category === "food") {
     return <Utensils size={14} aria-hidden="true" />;
@@ -106,8 +182,12 @@ function getMapCategoryIcon(category: MapSpotCategory) {
 export default function App() {
   const [game, setGame] = useState<GameState>(() => createInitialState());
   const [view, setView] = useState<AppView>("merge");
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressNextClickRef = useRef(false);
   const chapter = cityChapters[game.cityChapterId];
   const selectedPiece = game.selectedIndex === null ? null : game.board[game.selectedIndex];
+  const draggedLabel = drag ? getPieceLabel(game.board[drag.fromIndex]) : null;
   const focusedOrderId = getFocusedOrderId(game, chapter.orderIds);
   const focusedOrder = focusedOrderId ? orderDefs[focusedOrderId] : null;
 
@@ -118,49 +198,119 @@ export default function App() {
   );
 
   function handleCellClick(index: number) {
-    const piece = game.board[index];
-    if (game.selectedIndex === null) {
-      if (!piece) {
-        setGame({ ...game, message: "Select a piece first." });
-        return;
-      }
-      if (piece.kind === "hidden") {
-        setGame({ ...game, selectedIndex: null, message: "This part of the board is still sealed." });
-        return;
-      }
-      if (piece.kind === "locked") {
-        setGame({ ...game, selectedIndex: null, message: "This space is still locked." });
-        return;
-      }
-      if (piece.kind === "generator") {
-        setGame(emitFromGenerator(game, index));
-        return;
-      }
-      setGame({ ...game, selectedIndex: index, message: `${getPieceLabel(piece).label} selected.` });
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
       return;
     }
 
-    if (piece?.kind === "generator") {
+    const piece = game.board[index];
+    if (!piece) {
+      setGame({ ...game, selectedIndex: null, message: "Drag a board piece here to move it." });
+      return;
+    }
+    if (piece.kind === "hidden") {
+      setGame({ ...game, selectedIndex: null, message: "This part of the board is still sealed." });
+      return;
+    }
+    if (piece.kind === "locked") {
+      setGame({ ...game, selectedIndex: null, message: "This space is still locked." });
+      return;
+    }
+    if (piece.kind === "generator") {
       setGame(emitFromGenerator(game, index));
       return;
     }
+    setGame({ ...game, selectedIndex: index, message: `${getPieceLabel(piece).label} selected. Drag it to move or merge.` });
+  }
 
-    if (piece?.kind === "hidden" || piece?.kind === "locked") {
-      setGame(moveOrMerge(game, game.selectedIndex, index));
+  function setDragTarget(overIndex: number | null, clientX?: number, clientY?: number) {
+    const currentDrag = dragRef.current;
+    if (!currentDrag) {
       return;
     }
-
-    const selected = game.board[game.selectedIndex];
+    const nextClientX = clientX ?? currentDrag.clientX;
+    const nextClientY = clientY ?? currentDrag.clientY;
+    const movedDistance = Math.hypot(nextClientX - currentDrag.startX, nextClientY - currentDrag.startY);
+    const nextDrag = {
+      ...currentDrag,
+      overIndex,
+      hasMoved: currentDrag.hasMoved || currentDrag.overIndex !== overIndex || movedDistance >= 4,
+      clientX: nextClientX,
+      clientY: nextClientY
+    };
     if (
-      piece &&
-      selected &&
-      (piece.kind !== selected.kind || piece.defId !== selected.defId)
+      currentDrag.overIndex === nextDrag.overIndex &&
+      currentDrag.hasMoved === nextDrag.hasMoved &&
+      currentDrag.clientX === nextDrag.clientX &&
+      currentDrag.clientY === nextDrag.clientY
     ) {
-      setGame({ ...game, selectedIndex: index, message: `${getPieceLabel(piece).label} selected.` });
+      return;
+    }
+    dragRef.current = nextDrag;
+    setDrag(nextDrag);
+  }
+
+  function handleCellPointerDown(event: ReactPointerEvent<HTMLButtonElement>, index: number) {
+    const piece = game.board[index];
+    if (!piece || piece.kind === "hidden" || piece.kind === "locked") {
+      return;
+    }
+    const nextDrag = {
+      fromIndex: index,
+      overIndex: index,
+      hasMoved: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY
+    };
+    dragRef.current = nextDrag;
+    setDrag(nextDrag);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleCellPointerMove(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!dragRef.current) {
+      return;
+    }
+    event.preventDefault();
+    const target = document.elementFromPoint?.(event.clientX, event.clientY)?.closest<HTMLElement>("[data-cell-index]");
+    const targetIndex = target?.dataset.cellIndex === undefined ? null : Number(target.dataset.cellIndex);
+    setDragTarget(Number.isInteger(targetIndex) ? targetIndex : null, event.clientX, event.clientY);
+  }
+
+  function releaseCellPointer(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function finishCellDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const currentDrag = dragRef.current;
+    if (!currentDrag) {
       return;
     }
 
-    setGame(moveOrMerge(game, game.selectedIndex, index));
+    const droppedOnAnotherCell = currentDrag.overIndex !== null && currentDrag.overIndex !== currentDrag.fromIndex;
+    if (currentDrag.hasMoved) {
+      suppressNextClickRef.current = true;
+      window.setTimeout(() => {
+        suppressNextClickRef.current = false;
+      }, 0);
+    }
+    if (droppedOnAnotherCell) {
+      setGame((currentGame) => moveOrMerge(currentGame, currentDrag.fromIndex, currentDrag.overIndex as number));
+    }
+
+    releaseCellPointer(event);
+    dragRef.current = null;
+    setDrag(null);
+  }
+
+  function cancelCellDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    releaseCellPointer(event);
+    dragRef.current = null;
+    setDrag(null);
   }
 
   function handleOrderClick(orderId: string) {
@@ -173,29 +323,7 @@ export default function App() {
   }
 
   function handleMapSpotClick(spot: MapSpotDef) {
-    const status = getMapSpotStatus(game, spot);
-    if (status === "reserved") {
-      setGame({ ...game, message: `${spot.title} is a reserved ${spot.category} branch.` });
-      return;
-    }
-    if (status === "unlocked") {
-      setGame({ ...game, message: `${spot.title} is already part of the postcard.` });
-      return;
-    }
-    if (status === "locked") {
-      setGame({ ...game, message: `${spot.title} stays in the fog until the scenic route reaches it.` });
-      return;
-    }
-    if (game.stars < spot.starCost) {
-      setGame({ ...game, message: `${spot.title} needs ${spot.starCost} star${spot.starCost === 1 ? "" : "s"}.` });
-      return;
-    }
-    setGame({
-      ...game,
-      stars: game.stars - spot.starCost,
-      unlockedMapSpotIds: [...game.unlockedMapSpotIds, spot.id],
-      message: `${spot.title} opened on the city postcard.`
-    });
+    setGame(unlockMapSpot(game, spot.id));
   }
 
   function renderHud() {
@@ -391,22 +519,55 @@ export default function App() {
           {game.board.map((piece, index) => {
             const label = getPieceLabel(piece);
             const selected = game.selectedIndex === index;
-            const routeNeeded = piece?.kind === "item" && focusedRequirementChainIds.has(itemDefs[piece.defId].chainId);
+            const routeNeeded = pieceMatchesRoute(piece, focusedRequirementChainIds);
+            const dragging = drag?.fromIndex === index;
+            const sourceType = getSourceType(piece);
+            const sourceBadge = getSourceBadge(piece);
+            const pieceBadge = sourceBadge ?? (piece?.kind === "locked" ? "Lock" : null);
+            const dropIntent =
+              drag && drag.overIndex === index && drag.fromIndex !== index
+                ? getDropIntent(game, drag.fromIndex, index)
+                : null;
             return (
               <button
-                className={`cell ${label.className} ${selected ? "selected" : ""} ${routeNeeded ? "route-needed" : ""}`}
+                className={`cell ${label.className} ${selected ? "selected" : ""} ${routeNeeded ? "route-needed" : ""} ${
+                  dragging ? "dragging" : ""
+                } ${dropIntent ? `drop-target ${dropIntent}-target` : ""}`}
                 type="button"
                 key={piece ? piece.uid : `empty-${index}`}
                 onClick={() => handleCellClick(index)}
+                onPointerDown={(event) => handleCellPointerDown(event, index)}
+                onPointerEnter={(event) => setDragTarget(index, event.clientX, event.clientY)}
+                onPointerMove={handleCellPointerMove}
+                onPointerUp={finishCellDrag}
+                onPointerCancel={cancelCellDrag}
                 aria-label={`${label.label} cell ${index + 1}`}
+                aria-grabbed={dragging || undefined}
+                draggable={false}
+                data-cell-index={index}
+                data-dragging={dragging ? "true" : undefined}
+                data-drop-intent={dropIntent ?? undefined}
                 data-route-needed={routeNeeded ? "true" : undefined}
+                data-source-type={sourceType ?? undefined}
               >
+                {pieceBadge ? <span className="cell-badge">{pieceBadge}</span> : null}
                 <span className="cell-emoji">{label.emoji}</span>
                 <span className="cell-label">{label.shortLabel}</span>
               </button>
             );
           })}
         </section>
+
+        {drag?.hasMoved && draggedLabel ? (
+          <div
+            className={`drag-preview ${draggedLabel.className}`}
+            style={{ left: drag.clientX, top: drag.clientY }}
+            aria-label={`Dragging ${draggedLabel.label}`}
+          >
+            <span className="cell-emoji">{draggedLabel.emoji}</span>
+            <span className="cell-label">{draggedLabel.shortLabel}</span>
+          </div>
+        ) : null}
 
         <section className="merge-bottom" aria-label="Merge page bottom controls">
           <button
