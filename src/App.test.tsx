@@ -10,8 +10,20 @@ describe("Travel Merge2 shell", () => {
     expect(screen.getByLabelText("Stars")).toBeTruthy();
     expect(screen.getByLabelText("Coins")).toBeTruthy();
     expect(screen.getByLabelText("Gems")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Activity board: 3 tickets" })).toBeTruthy();
     expect(screen.queryByText("Tokyo Morning Street")).toBeNull();
     expect(screen.queryByLabelText("Current route focus")).toBeNull();
+  });
+
+  it("opens the activity board from the merge HUD and keeps the activity wallet visible", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Activity board: 3 tickets" }));
+
+    expect(screen.getByLabelText("Travel fair activity")).toBeTruthy();
+    expect(screen.getByLabelText("Activity merge board")).toBeTruthy();
+    expect(within(screen.getByLabelText("Activity wallet")).getByText("Tickets")).toBeTruthy();
+    expect(within(screen.getByLabelText("Activity wallet")).getByText("Fair Coins")).toBeTruthy();
   });
 
   it("uses the mature merge-page bottom controls: backpack, info board, and meta exit", () => {
@@ -29,6 +41,15 @@ describe("Travel Merge2 shell", () => {
     const orderStrip = screen.getByLabelText("Active customer orders");
     expect(within(orderStrip).getByText("Departure Prep")).toBeTruthy();
     expect(within(orderStrip).getByText("Tokyo Morning Errand")).toBeTruthy();
+  });
+
+  it("renders the formal main merge board as a 7 by 9 grid", () => {
+    render(<App />);
+
+    const mergeBoard = screen.getByLabelText("Merge board");
+    expect(mergeBoard.getAttribute("data-board-cols")).toBe("7");
+    expect(mergeBoard.getAttribute("data-board-rows")).toBe("9");
+    expect(within(mergeBoard).getAllByRole("button")).toHaveLength(63);
   });
 
   it("keeps route focus inside the order card and links useful board chains", () => {
@@ -134,6 +155,14 @@ describe("Travel Merge2 shell", () => {
     expect(within(progress).getByText("3/8")).toBeTruthy();
     expect(screen.getByLabelText("Canal Bridge unlocked")).toBeTruthy();
     expect(screen.getByLabelText("Stars").textContent).toBe("0");
+  });
+
+  it("adds activity tickets when a main-board order is delivered", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByLabelText("Deliver Tokyo Morning Errand"));
+
+    expect(screen.getByRole("button", { name: "Activity board: 5 tickets" })).toBeTruthy();
   });
 
   it("feeds the first map unlock back into a new playable merge beat", () => {

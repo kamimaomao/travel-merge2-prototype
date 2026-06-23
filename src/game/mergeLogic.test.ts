@@ -176,6 +176,7 @@ describe("merge board mechanics", () => {
     };
     const next = fulfillOrder(ready, "departure-prep");
     expect(next.stars).toBe(ready.stars + 1);
+    expect(next.activityEnergy).toBe(ready.activityEnergy + 2);
     expect(next.cityProgress).toBe(ready.cityProgress + 1);
     expect(next.completedOrderIds).toContain("departure-prep");
     expect(next.board.some((piece) => piece?.defId === "day-bag")).toBe(false);

@@ -60,6 +60,7 @@ export interface OrderDef {
   flavor: string;
   requirements: OrderRequirement[];
   rewardStars: number;
+  rewardActivityEnergy: number;
   rewardCityProgress: number;
   rewardCatMood?: number;
 }
@@ -99,6 +100,7 @@ export interface BoardPiece {
 export interface GameState {
   board: Array<BoardPiece | null>;
   boardCols: number;
+  boardRows: number;
   energy: number;
   stars: number;
   coins: number;
@@ -106,6 +108,12 @@ export interface GameState {
   cityProgress: number;
   catMood: number;
   selectedIndex: number | null;
+  activityEnergy: number;
+  activityCurrency: number;
+  activityBoard: Array<BoardPiece | null>;
+  activityBoardCols: number;
+  activitySelectedIndex: number | null;
+  activityNextUid: number;
   focusedOrderId?: string | null;
   activeOrderIds: string[];
   completedOrderIds: string[];

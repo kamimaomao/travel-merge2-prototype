@@ -7,6 +7,7 @@ function cloneState(state: GameState): GameState {
   return {
     ...state,
     board: [...state.board],
+    activityBoard: [...state.activityBoard],
     activeOrderIds: [...state.activeOrderIds],
     completedOrderIds: [...state.completedOrderIds],
     unlockedMapSpotIds: [...state.unlockedMapSpotIds]
@@ -374,9 +375,10 @@ export function fulfillOrder(state: GameState, orderId: string): GameState {
   }
   next.completedOrderIds = [...next.completedOrderIds, orderId];
   next.stars += order.rewardStars;
+  next.activityEnergy += order.rewardActivityEnergy;
   next.cityProgress += order.rewardCityProgress;
   next.catMood += order.rewardCatMood === undefined ? 0 : order.rewardCatMood;
   next.selectedIndex = null;
-  next.message = `${order.requester} completed "${order.title}".`;
+  next.message = `${order.requester} completed "${order.title}". +${order.rewardActivityEnergy} event tickets.`;
   return next;
 }

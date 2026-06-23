@@ -63,9 +63,11 @@ describe("travel merge content", () => {
     const state = createInitialState();
     const hiddenCells = state.board.filter((piece) => piece?.kind === "hidden");
     const directlyPlayableCells = state.board.filter((piece) => piece === null || piece.kind !== "hidden");
-    expect(state.board.length).toBe(state.boardCols * state.boardCols);
-    expect(hiddenCells.length).toBeGreaterThanOrEqual(20);
-    expect(hiddenCells.length).toBeLessThanOrEqual(22);
+    expect(state.boardCols).toBe(7);
+    expect(state.boardRows).toBe(9);
+    expect(state.board.length).toBe(state.boardCols * state.boardRows);
+    expect(hiddenCells.length).toBeGreaterThanOrEqual(45);
+    expect(hiddenCells.length).toBeLessThanOrEqual(50);
     expect(directlyPlayableCells.length).toBeGreaterThanOrEqual(13);
     expect(directlyPlayableCells.length).toBeLessThanOrEqual(15);
     expect(directlyPlayableCells.some((piece) => piece?.kind === "generator")).toBe(true);

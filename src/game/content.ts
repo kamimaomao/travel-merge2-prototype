@@ -325,6 +325,7 @@ export const orderDefs: Record<string, OrderDef> = {
       { itemId: "day-pass", count: 1 }
     ],
     rewardStars: 1,
+    rewardActivityEnergy: 2,
     rewardCityProgress: 1
   },
   "tokyo-morning-errand": {
@@ -337,6 +338,7 @@ export const orderDefs: Record<string, OrderDef> = {
       { itemId: "station-ticket", count: 1 }
     ],
     rewardStars: 1,
+    rewardActivityEnergy: 2,
     rewardCityProgress: 1
   },
   "cat-preference": {
@@ -349,6 +351,7 @@ export const orderDefs: Record<string, OrderDef> = {
       { itemId: "charm", count: 1 }
     ],
     rewardStars: 1,
+    rewardActivityEnergy: 2,
     rewardCityProgress: 1,
     rewardCatMood: 1
   },
@@ -359,6 +362,7 @@ export const orderDefs: Record<string, OrderDef> = {
     flavor: "Theo insists on emergency food before the group misses dinner.",
     requirements: [{ itemId: "travel-meal-kit", count: 1 }],
     rewardStars: 1,
+    rewardActivityEnergy: 3,
     rewardCityProgress: 1
   }
 };

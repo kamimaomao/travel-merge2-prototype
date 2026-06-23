@@ -13,6 +13,37 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import backpackAsset from "./assets/merge2/board-pieces/borderless/backpack.png";
+import bentoAsset from "./assets/merge2/board-pieces/borderless/bento.png";
+import cameraKitAsset from "./assets/merge2/board-pieces/borderless/camera-kit.png";
+import charmAsset from "./assets/merge2/board-pieces/borderless/charm.png";
+import dayBagAsset from "./assets/merge2/board-pieces/borderless/day-bag.png";
+import dayPassAsset from "./assets/merge2/board-pieces/borderless/day-pass.png";
+import fairStamp1Asset from "./assets/merge2/board-pieces/fair-stamp-1.png";
+import fairStamp2Asset from "./assets/merge2/board-pieces/fair-stamp-2.png";
+import fairVoucherRoll1Asset from "./assets/merge2/board-pieces/fair-voucher-roll-1.png";
+import fairVoucherRoll2Asset from "./assets/merge2/board-pieces/fair-voucher-roll-2.png";
+import festivalVoucherAsset from "./assets/merge2/board-pieces/borderless/festival-voucher.png";
+import guidebookGeneratorAsset from "./assets/merge2/board-pieces/borderless/guidebook-generator-1.png";
+import hiddenSealedCellAsset from "./assets/merge2/board-pieces/borderless/hidden-sealed-cell.png";
+import instantNoodlesAsset from "./assets/merge2/board-pieces/borderless/instant-noodles.png";
+import lockedCellAsset from "./assets/merge2/board-pieces/borderless/locked-cell.png";
+import onigiriAsset from "./assets/merge2/board-pieces/borderless/onigiri.png";
+import organizedLuggageAsset from "./assets/merge2/board-pieces/borderless/organized-luggage.png";
+import ramenTicketAsset from "./assets/merge2/board-pieces/borderless/ramen-ticket.png";
+import sealedMapCacheAsset from "./assets/merge2/board-pieces/borderless/sealed-map-cache.png";
+import smallPouchAsset from "./assets/merge2/board-pieces/borderless/small-pouch.png";
+import snackSourceAsset from "./assets/merge2/board-pieces/borderless/snack-source.png";
+import souvenirGiftBoxAsset from "./assets/merge2/board-pieces/borderless/souvenir-gift-box.png";
+import stationTicketAsset from "./assets/merge2/board-pieces/borderless/station-ticket.png";
+import stampBookletAsset from "./assets/merge2/board-pieces/borderless/stamp-booklet.png";
+import suitcaseGeneratorAsset from "./assets/merge2/board-pieces/borderless/suitcase-generator-1.png";
+import suitcaseGenerator2Asset from "./assets/merge2/board-pieces/borderless/suitcase-generator-2.png";
+import tokyoConvenienceBagAsset from "./assets/merge2/board-pieces/borderless/tokyo-convenience-bag.png";
+import travelMealKitAsset from "./assets/merge2/board-pieces/borderless/travel-meal-kit.png";
+import windChimeAsset from "./assets/merge2/board-pieces/borderless/wind-chime.png";
+import { activeActivity, activityGeneratorDefs, activityItemDefs } from "./game/activityContent";
+import { emitFromActivityGenerator, getActivityDropIntent, moveOrMergeActivity, openActivityReward } from "./game/activityLogic";
 import { cityChapters, generatorDefs, itemDefs, orderDefs } from "./game/content";
 import { createInitialState } from "./game/createInitialState";
 import { mapSpotDefs } from "./game/mapContent";
@@ -26,7 +57,14 @@ import type {
   MapSpotDef,
 } from "./game/types";
 
-type AppView = "merge" | "map";
+type AppView = "merge" | "map" | "activity";
+type PiecePresentation = {
+  emoji: string;
+  shortLabel: string;
+  label: string;
+  className: string;
+  assetSrc?: string;
+};
 type DragState = {
   fromIndex: number;
   overIndex: number | null;
@@ -37,12 +75,75 @@ type DragState = {
   clientY: number;
 };
 
-function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: string; label: string; className: string } {
+const boardPieceAssets: Record<string, string> = {
+  "small-pouch": smallPouchAsset,
+  "day-bag": dayBagAsset,
+  backpack: backpackAsset,
+  "organized-luggage": organizedLuggageAsset,
+  "instant-noodles": instantNoodlesAsset,
+  "travel-meal-kit": travelMealKitAsset,
+  bento: bentoAsset,
+  "ramen-ticket": ramenTicketAsset,
+  charm: charmAsset,
+  "wind-chime": windChimeAsset,
+  "stamp-booklet": stampBookletAsset,
+  "suitcase-1": suitcaseGeneratorAsset,
+  "suitcase-2": suitcaseGenerator2Asset,
+  "travel-guidebook-1": guidebookGeneratorAsset,
+  "travel-guidebook-2": guidebookGeneratorAsset,
+  "camera-kit-1": cameraKitAsset,
+  "festival-voucher-1": festivalVoucherAsset,
+  "sealed-map-cache": sealedMapCacheAsset,
+  "snack-source-1": snackSourceAsset,
+  "tokyo-convenience-bag-1": tokyoConvenienceBagAsset,
+  "rice-ball": onigiriAsset,
+  "station-ticket": stationTicketAsset,
+  "day-pass": dayPassAsset,
+  "souvenir-gift-box": souvenirGiftBoxAsset,
+  "fair-stamp-1": fairStamp1Asset,
+  "fair-stamp-2": fairStamp2Asset,
+  "fair-voucher-roll-1": fairVoucherRoll1Asset,
+  "fair-voucher-roll-2": fairVoucherRoll2Asset,
+  "fair-reward-box": souvenirGiftBoxAsset
+};
+
+function getPieceAsset(piece: BoardPiece | null): string | undefined {
   if (!piece) {
-    return { emoji: "", shortLabel: "", label: "Empty", className: "empty" };
+    return undefined;
   }
   if (piece.kind === "hidden") {
-    return { emoji: "◇", shortLabel: "Sealed", label: "Sealed travel space", className: "hidden" };
+    return hiddenSealedCellAsset;
+  }
+  if (piece.kind === "locked") {
+    return lockedCellAsset;
+  }
+  return boardPieceAssets[piece.defId];
+}
+
+function renderPieceVisual(label: PiecePresentation) {
+  if (label.assetSrc) {
+    return <img className="cell-asset" src={label.assetSrc} alt="" draggable={false} />;
+  }
+  return (
+    <>
+      <span className="cell-emoji">{label.emoji}</span>
+      <span className="cell-label">{label.shortLabel}</span>
+    </>
+  );
+}
+
+function getPieceLabel(piece: BoardPiece | null): PiecePresentation {
+  if (!piece) {
+    return { emoji: "", shortLabel: "", label: "Empty", className: "empty", assetSrc: getPieceAsset(piece) };
+  }
+  if (piece.kind === "hidden") {
+    return {
+      emoji: "◇",
+      shortLabel: "Sealed",
+      label: "Sealed travel space",
+      className: "hidden",
+      assetSrc: getPieceAsset(piece)
+    };
   }
   if (piece.kind === "locked") {
     const generator = generatorDefs[piece.defId];
@@ -51,7 +152,8 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
         emoji: generator.emoji,
         shortLabel: generator.shortLabel,
         label: `Locked ${generator.label}`,
-        className: "locked locked-generator"
+        className: "locked locked-generator",
+        assetSrc: getPieceAsset(piece)
       };
     }
     const item = itemDefs[piece.defId];
@@ -60,10 +162,17 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
         emoji: item.emoji,
         shortLabel: item.shortLabel,
         label: `Locked ${item.label}`,
-        className: `locked locked-item ${item.scope === "city" ? "city-item" : "persistent-item"}`
+        className: `locked locked-item ${item.scope === "city" ? "city-item" : "persistent-item"}`,
+        assetSrc: getPieceAsset(piece)
       };
     }
-    return { emoji: "📦", shortLabel: "Locked", label: "Locked travel space", className: "locked" };
+    return {
+      emoji: "📦",
+      shortLabel: "Locked",
+      label: "Locked travel space",
+      className: "locked",
+      assetSrc: getPieceAsset(piece)
+    };
   }
   if (piece.kind === "generator") {
     const generator = generatorDefs[piece.defId];
@@ -73,7 +182,8 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
       label: generator.label,
       className: `${generator.cityLimited ? "generator city-generator" : "generator persistent-generator"} source-${
         generator.sourceType
-      }`
+      }`,
+      assetSrc: getPieceAsset(piece)
     };
   }
   const item = itemDefs[piece.defId];
@@ -81,7 +191,51 @@ function getPieceLabel(piece: BoardPiece | null): { emoji: string; shortLabel: s
     emoji: item.emoji,
     shortLabel: item.shortLabel,
     label: item.label,
-    className: item.scope === "city" ? "item city-item" : "item persistent-item"
+    className: item.scope === "city" ? "item city-item" : "item persistent-item",
+    assetSrc: getPieceAsset(piece)
+  };
+}
+
+function getActivityPieceLabel(piece: BoardPiece | null): PiecePresentation {
+  if (!piece) {
+    return { emoji: "", shortLabel: "", label: "Empty", className: "empty", assetSrc: getPieceAsset(piece) };
+  }
+  if (piece.kind === "hidden") {
+    return {
+      emoji: "◇",
+      shortLabel: "Sealed",
+      label: "Sealed activity space",
+      className: "hidden",
+      assetSrc: getPieceAsset(piece)
+    };
+  }
+  if (piece.kind === "locked") {
+    const item = activityItemDefs[piece.defId];
+    return {
+      emoji: item?.emoji ?? "▣",
+      shortLabel: item?.shortLabel ?? "Lock",
+      label: item ? `Locked ${item.label}` : "Locked activity space",
+      className: "locked locked-item activity-item",
+      assetSrc: getPieceAsset(piece)
+    };
+  }
+  if (piece.kind === "generator") {
+    const generator = activityGeneratorDefs[piece.defId];
+    return {
+      emoji: generator.emoji,
+      shortLabel: generator.shortLabel,
+      label: generator.label,
+      className: "generator activity-generator source-finite",
+      assetSrc: getPieceAsset(piece)
+    };
+  }
+  const item = activityItemDefs[piece.defId];
+  return {
+    emoji: item.emoji,
+    shortLabel: item.shortLabel,
+    label: item.label,
+    className: "item activity-item",
+    assetSrc: getPieceAsset(piece)
   };
 }
 
@@ -118,6 +272,10 @@ function canFulfillOrder(state: GameState, orderId: string): boolean {
     const owned = state.board.filter((piece) => piece?.kind === "item" && piece.defId === requirement.itemId).length;
     return owned >= requirement.count;
   });
+}
+
+function getOwnedItemCount(state: GameState, itemId: string): number {
+  return state.board.filter((piece) => piece?.kind === "item" && piece.defId === itemId).length;
 }
 
 function getFocusedOrderId(state: GameState, chapterOrderIds: string[]): string | null {
@@ -159,6 +317,10 @@ function getRequesterAvatar(requester: string): string {
   return avatars[requester] ?? requester.slice(0, 1);
 }
 
+function getRequesterClass(requester: string): string {
+  return requester.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 function formatHudValue(value: number): string {
   if (value >= 1000) {
     return `${(value / 1000).toFixed(1)}K`;
@@ -187,11 +349,15 @@ export default function App() {
   const suppressNextClickRef = useRef(false);
   const chapter = cityChapters[game.cityChapterId];
   const selectedPiece = game.selectedIndex === null ? null : game.board[game.selectedIndex];
+  const selectedActivityPiece =
+    game.activitySelectedIndex === null ? null : game.activityBoard[game.activitySelectedIndex];
   const draggedLabel = drag ? getPieceLabel(game.board[drag.fromIndex]) : null;
+  const draggedActivityLabel = drag ? getActivityPieceLabel(game.activityBoard[drag.fromIndex]) : null;
   const focusedOrderId = getFocusedOrderId(game, chapter.orderIds);
   const focusedOrder = focusedOrderId ? orderDefs[focusedOrderId] : null;
 
   const selectedLabel = useMemo(() => getPieceLabel(selectedPiece), [selectedPiece]);
+  const selectedActivityLabel = useMemo(() => getActivityPieceLabel(selectedActivityPiece), [selectedActivityPiece]);
   const focusedRequirementChainIds = useMemo(
     () => new Set(focusedOrder?.requirements.map((requirement) => itemDefs[requirement.itemId].chainId) ?? []),
     [focusedOrder]
@@ -223,6 +389,41 @@ export default function App() {
     setGame({ ...game, selectedIndex: index, message: `${getPieceLabel(piece).label} selected. Drag it to move or merge.` });
   }
 
+  function handleActivityCellClick(index: number) {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+
+    const piece = game.activityBoard[index];
+    if (!piece) {
+      setGame({ ...game, activitySelectedIndex: null, message: "Drag an activity piece here to move it." });
+      return;
+    }
+    if (piece.kind === "hidden") {
+      setGame({ ...game, activitySelectedIndex: null, message: "This activity space is still sealed." });
+      return;
+    }
+    if (piece.kind === "locked") {
+      setGame({ ...game, activitySelectedIndex: null, message: "This activity space is still locked." });
+      return;
+    }
+    if (piece.kind === "generator") {
+      setGame(emitFromActivityGenerator(game, index));
+      return;
+    }
+    const item = activityItemDefs[piece.defId];
+    if (item.rewardCurrency) {
+      setGame(openActivityReward(game, index));
+      return;
+    }
+    setGame({
+      ...game,
+      activitySelectedIndex: index,
+      message: `${getActivityPieceLabel(piece).label} selected. Drag it to move or merge.`
+    });
+  }
+
   function setDragTarget(overIndex: number | null, clientX?: number, clientY?: number) {
     const currentDrag = dragRef.current;
     if (!currentDrag) {
@@ -252,6 +453,25 @@ export default function App() {
 
   function handleCellPointerDown(event: ReactPointerEvent<HTMLButtonElement>, index: number) {
     const piece = game.board[index];
+    if (!piece || piece.kind === "hidden" || piece.kind === "locked") {
+      return;
+    }
+    const nextDrag = {
+      fromIndex: index,
+      overIndex: index,
+      hasMoved: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY
+    };
+    dragRef.current = nextDrag;
+    setDrag(nextDrag);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handleActivityCellPointerDown(event: ReactPointerEvent<HTMLButtonElement>, index: number) {
+    const piece = game.activityBoard[index];
     if (!piece || piece.kind === "hidden" || piece.kind === "locked") {
       return;
     }
@@ -307,6 +527,28 @@ export default function App() {
     setDrag(null);
   }
 
+  function finishActivityCellDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const currentDrag = dragRef.current;
+    if (!currentDrag) {
+      return;
+    }
+
+    const droppedOnAnotherCell = currentDrag.overIndex !== null && currentDrag.overIndex !== currentDrag.fromIndex;
+    if (currentDrag.hasMoved) {
+      suppressNextClickRef.current = true;
+      window.setTimeout(() => {
+        suppressNextClickRef.current = false;
+      }, 0);
+    }
+    if (droppedOnAnotherCell) {
+      setGame((currentGame) => moveOrMergeActivity(currentGame, currentDrag.fromIndex, currentDrag.overIndex as number));
+    }
+
+    releaseCellPointer(event);
+    dragRef.current = null;
+    setDrag(null);
+  }
+
   function cancelCellDrag(event: ReactPointerEvent<HTMLButtonElement>) {
     releaseCellPointer(event);
     dragRef.current = null;
@@ -324,6 +566,11 @@ export default function App() {
 
   function handleMapSpotClick(spot: MapSpotDef) {
     setGame(unlockMapSpot(game, spot.id));
+  }
+
+  function openActivityView() {
+    setGame({ ...game, message: "Spend activity tickets on voucher rolls to produce fair souvenirs." });
+    setView("activity");
   }
 
   function renderHud() {
@@ -345,10 +592,122 @@ export default function App() {
           <Gem size={16} aria-hidden="true" />
           <span>{formatHudValue(game.gems)}</span>
         </div>
+        <button
+          className="activity-nav-button"
+          type="button"
+          onClick={openActivityView}
+          aria-label={`Activity board: ${game.activityEnergy} tickets`}
+        >
+          <Sparkles size={18} aria-hidden="true" />
+          <span className="activity-badge" aria-hidden="true">
+            {game.activityEnergy}
+          </span>
+        </button>
         <button className="icon-button" type="button" onClick={resetPrototype} aria-label="Reset prototype">
           <RotateCcw size={18} aria-hidden="true" />
         </button>
       </header>
+    );
+  }
+
+  if (view === "activity") {
+    return (
+      <main className="game-shell">
+        <section className="phone-frame activity-frame" aria-label="Travel fair activity">
+          {renderHud()}
+
+          <section className="activity-titlebar">
+            <button type="button" className="icon-button" aria-label="Back to merge board" onClick={() => setView("merge")}>
+              <ArrowLeft size={20} aria-hidden="true" />
+            </button>
+            <div>
+              <p className="eyebrow">Activity</p>
+              <h1>{activeActivity.title}</h1>
+              <p>{activeActivity.subtitle}</p>
+            </div>
+            <div className="activity-wallet" aria-label="Activity wallet">
+              <strong>{game.activityEnergy}</strong>
+              <span>{activeActivity.energyLabel}</span>
+              <strong>{game.activityCurrency}</strong>
+              <span>{activeActivity.currencyLabel}</span>
+            </div>
+          </section>
+
+          <section
+            className="board activity-board"
+            aria-label="Activity merge board"
+            style={{ gridTemplateColumns: `repeat(${game.activityBoardCols}, minmax(0, 1fr))` }}
+          >
+            {game.activityBoard.map((piece, index) => {
+              const label = getActivityPieceLabel(piece);
+              const selected = game.activitySelectedIndex === index;
+              const dragging = drag?.fromIndex === index;
+              const dropIntent =
+                drag && drag.overIndex === index && drag.fromIndex !== index
+                  ? getActivityDropIntent(game, drag.fromIndex, index)
+                  : null;
+              const pieceBadge =
+                piece?.kind === "generator"
+                  ? `${piece.remainingTaps ?? activityGeneratorDefs[piece.defId].maxTaps}`
+                  : piece?.kind === "locked"
+                    ? "Lock"
+                    : null;
+              return (
+                <button
+                  className={`cell activity-cell ${label.className} ${label.assetSrc ? "has-asset" : ""} ${
+                    selected ? "selected" : ""
+                  } ${dragging ? "dragging" : ""} ${dropIntent ? `drop-target ${dropIntent}-target` : ""}`}
+                  type="button"
+                  key={piece ? piece.uid : `activity-empty-${index}`}
+                  onClick={() => handleActivityCellClick(index)}
+                  onPointerDown={(event) => handleActivityCellPointerDown(event, index)}
+                  onPointerEnter={(event) => setDragTarget(index, event.clientX, event.clientY)}
+                  onPointerMove={handleCellPointerMove}
+                  onPointerUp={finishActivityCellDrag}
+                  onPointerCancel={cancelCellDrag}
+                  aria-label={`${label.label} activity cell ${index + 1}`}
+                  aria-grabbed={dragging || undefined}
+                  draggable={false}
+                  data-cell-index={index}
+                  data-dragging={dragging ? "true" : undefined}
+                  data-drop-intent={dropIntent ?? undefined}
+                >
+                  {pieceBadge ? <span className="cell-badge">{pieceBadge}</span> : null}
+                  {renderPieceVisual(label)}
+                </button>
+              );
+            })}
+          </section>
+
+          {drag?.hasMoved && draggedActivityLabel ? (
+            <div
+              className={`drag-preview ${draggedActivityLabel.className} ${
+                draggedActivityLabel.assetSrc ? "has-asset" : ""
+              }`}
+              style={{ left: drag.clientX, top: drag.clientY }}
+              aria-label={`Dragging ${draggedActivityLabel.label}`}
+            >
+              {renderPieceVisual(draggedActivityLabel)}
+            </div>
+          ) : null}
+
+          <section className="merge-bottom" aria-label="Activity page bottom controls">
+            <button className="bottom-action" type="button" aria-label="Back to merge board" onClick={() => setView("merge")}>
+              <ArrowLeft size={20} aria-hidden="true" />
+            </button>
+            <div className="bottom-info" aria-label="Activity information">
+              <div>
+                <p className="eyebrow">Selected</p>
+                <strong>{selectedActivityPiece ? selectedActivityLabel.label : "None"}</strong>
+              </div>
+              <p>{game.message}</p>
+            </div>
+            <button className="bottom-action" type="button" aria-label="Postcard map" onClick={() => setView("map")}>
+              <MapIcon size={20} aria-hidden="true" />
+            </button>
+          </section>
+        </section>
+      </main>
     );
   }
 
@@ -450,7 +809,7 @@ export default function App() {
 
   return (
     <main className="game-shell">
-      <section className="phone-frame" aria-label="Travel Merge2 prototype">
+      <section className="phone-frame merge-frame" aria-label="Travel Merge2 prototype">
         {renderHud()}
 
         <section className="customer-strip" aria-label="Active customer orders">
@@ -460,37 +819,58 @@ export default function App() {
             const focused = focusedOrderId === orderId;
             return (
               <article
-                className={`customer-ticket ${ready ? "ready" : ""} ${focused ? "focused" : ""}`}
+                className={`customer-ticket requester-${getRequesterClass(order.requester)} ${ready ? "ready" : ""} ${
+                  focused ? "focused" : ""
+                }`}
                 key={order.id}
                 aria-label={`${focused ? "Focused order" : "Order"}: ${order.title}`}
                 aria-current={focused ? "step" : undefined}
               >
-                <span className="customer-avatar" aria-hidden="true">
-                  {getRequesterAvatar(order.requester)}
-                </span>
+                <div className="customer-portrait" aria-hidden="true">
+                  <span className="portrait-head">{getRequesterAvatar(order.requester)}</span>
+                  <span className="portrait-body" />
+                </div>
                 <div className="ticket-main">
                   <span className="requester">{order.requester}</span>
                   {focused ? <span className="focus-chip">Route</span> : null}
                   <h2>{order.title}</h2>
                 </div>
-                <div className="ticket-requirements" aria-label={`${order.title} requirements`}>
-                  {order.requirements.map((requirement) => (
-                    <span key={requirement.itemId}>
-                      {itemDefs[requirement.itemId].emoji}x{requirement.count}
-                    </span>
-                  ))}
+                <div className="ticket-platform">
+                  <div className="ticket-requirements" aria-label={`${order.title} requirements`}>
+                    {order.requirements.map((requirement) => {
+                      const item = itemDefs[requirement.itemId];
+                      const owned = getOwnedItemCount(game, requirement.itemId);
+                      return (
+                        <span
+                          className={`ticket-requirement-slot ${owned >= requirement.count ? "complete" : ""}`}
+                          key={requirement.itemId}
+                        >
+                          {boardPieceAssets[requirement.itemId] ? (
+                            <img src={boardPieceAssets[requirement.itemId]} alt="" draggable={false} />
+                          ) : (
+                            <span className="requirement-emoji">{item.emoji}</span>
+                          )}
+                          <strong>
+                            {Math.min(owned, requirement.count)}/{requirement.count}
+                          </strong>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <button
+                    className="ticket-deliver"
+                    type="button"
+                    disabled={!ready}
+                    onClick={() => handleOrderClick(order.id)}
+                    aria-label={`Deliver ${order.title}`}
+                  >
+                    {ready ? "OK" : "..."}
+                  </button>
                 </div>
                 <span className="ticket-reward" aria-label={`${order.title} reward`}>
-                  <Sparkles size={12} aria-hidden="true" /> +{order.rewardStars}
+                  <Coins size={12} aria-hidden="true" /> +{order.rewardActivityEnergy * 20}
+                  <Sparkles size={12} aria-hidden="true" /> +{order.rewardStars * 10}
                 </span>
-                <button
-                  type="button"
-                  disabled={!ready}
-                  onClick={() => handleOrderClick(order.id)}
-                  aria-label={`Deliver ${order.title}`}
-                >
-                  Deliver
-                </button>
               </article>
             );
           })}
@@ -512,9 +892,11 @@ export default function App() {
         </section>
 
         <section
-          className="board"
+          className="board merge-board"
           aria-label="Merge board"
           style={{ gridTemplateColumns: `repeat(${game.boardCols}, minmax(0, 1fr))` }}
+          data-board-cols={game.boardCols}
+          data-board-rows={game.boardRows}
         >
           {game.board.map((piece, index) => {
             const label = getPieceLabel(piece);
@@ -530,9 +912,11 @@ export default function App() {
                 : null;
             return (
               <button
-                className={`cell ${label.className} ${selected ? "selected" : ""} ${routeNeeded ? "route-needed" : ""} ${
-                  dragging ? "dragging" : ""
-                } ${dropIntent ? `drop-target ${dropIntent}-target` : ""}`}
+                className={`cell ${label.className} ${label.assetSrc ? "has-asset" : ""} ${
+                  selected ? "selected" : ""
+                } ${routeNeeded ? "route-needed" : ""} ${dragging ? "dragging" : ""} ${
+                  dropIntent ? `drop-target ${dropIntent}-target` : ""
+                }`}
                 type="button"
                 key={piece ? piece.uid : `empty-${index}`}
                 onClick={() => handleCellClick(index)}
@@ -551,8 +935,7 @@ export default function App() {
                 data-source-type={sourceType ?? undefined}
               >
                 {pieceBadge ? <span className="cell-badge">{pieceBadge}</span> : null}
-                <span className="cell-emoji">{label.emoji}</span>
-                <span className="cell-label">{label.shortLabel}</span>
+                {renderPieceVisual(label)}
               </button>
             );
           })}
@@ -560,12 +943,11 @@ export default function App() {
 
         {drag?.hasMoved && draggedLabel ? (
           <div
-            className={`drag-preview ${draggedLabel.className}`}
+            className={`drag-preview ${draggedLabel.className} ${draggedLabel.assetSrc ? "has-asset" : ""}`}
             style={{ left: drag.clientX, top: drag.clientY }}
             aria-label={`Dragging ${draggedLabel.label}`}
           >
-            <span className="cell-emoji">{draggedLabel.emoji}</span>
-            <span className="cell-label">{draggedLabel.shortLabel}</span>
+            {renderPieceVisual(draggedLabel)}
           </div>
         ) : null}
 
